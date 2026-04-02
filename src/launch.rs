@@ -10,6 +10,7 @@ pub fn start_game(
     client_jar: &Path,
     libraries: Vec<PathBuf>,
     player_name: &str,
+    java_executable: &Path,
 ) -> Result<(), AnyError> {
     tracing::info!("Assembling startup parameters...");
 
@@ -37,7 +38,7 @@ pub fn start_game(
     }
 
     // 3. Build and execute Java commands
-    let mut cmd = Command::new("/usr/lib/jvm/java-17-openjdk/bin/java");
+    let mut cmd = Command::new(java_executable);
 
     // === A. JVM Runtime Parameters ===
     cmd.arg("-Xmx2G");
