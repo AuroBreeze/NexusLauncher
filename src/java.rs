@@ -1,8 +1,12 @@
 // src/java.rs
+use crate::version::AnyError;
+use futures_util::StreamExt;
+use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
 use std::env;
 use std::path::{Path, PathBuf};
 use tokio::fs;
+use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 
 #[derive(Debug, Clone)]
@@ -90,14 +94,18 @@ async fn scan_jvm_directory(dir: &Path) -> Vec<JavaInfo> {
                     if let Some(info) = check_java_executable(&java_bin).await {
                         results.push(info);
                     }
-                }else {
+                } else {
                     tracing::debug!("Not a valid Java executable: {}", java_bin.display());
                 }
             }
             Ok(None) => break, // Successfully read all entries, exit the loop
             Err(e) => {
                 // Log the specific I/O error without failing silently or panicking
-                tracing::warn!("I/O error while reading entries in {}: {}", dir.display(), e);
+                tracing::warn!(
+                    "I/O error while reading entries in {}: {}",
+                    dir.display(),
+                    e
+                );
                 break;
             }
         }
@@ -152,8 +160,98 @@ pub async fn scan_local_java_environments(custom_scan_path: Option<&Path>) -> Ve
     for info in scan_jvm_directory(jvm_dir).await {
         add_if_new(info);
     }
-   
 
-    tracing::info!("Scan complete, a total of {} unique Java environments were found", javas.len());
+    tracing::info!(
+        "Scan complete, a total of {} unique Java environments were found",
+        javas.len()
+    );
     javas
+}
+
+/// Automatically downloads and extracts the correct Java JRE from Adoptium API.
+/// Returns the path to the directory where Java was extracted.
+pub async fn download_java(major_version: u32, runtimes_dir: &Path) -> Result<PathBuf, AnyError> {
+    tracing::info!("Preparing to download Java {}...", major_version);
+
+    // 1. Detect OS and Architecture dynamically
+    let os = match env::consts::OS {
+        "windows" => "windows",
+        "macos" => "mac",
+        _ => "linux", // Default to linux for Arch Linux
+    };
+
+    let arch = match env::consts::ARCH {
+        "aarch64" => "aarch64",
+        _ => "x64", // Standard 64-bit architecture
+    };
+
+    // 2. Construct the Adoptium V3 API URL (Requesting JRE, not full JDK)
+    let url = format!(
+        "https://api.adoptium.net/v3/binary/latest/{}/ga/{}/{}/jre/hotspot/normal/eclipse",
+        major_version, os, arch
+    );
+
+    // Create an isolated directory for this specific Java version
+    let target_dir = runtimes_dir.join(format!("jre-{}", major_version));
+    if !target_dir.exists() {
+        fs::create_dir_all(&target_dir).await?;
+    }
+
+    // 3. Initiate the download stream
+    let response = reqwest::get(&url).await?;
+    let total_size = response.content_length().unwrap_or(0);
+
+    let pb = ProgressBar::new(total_size);
+    if let Ok(style) = ProgressStyle::with_template(
+        "{spinner:.green} [Downloading Java] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})",
+    ) {
+        pb.set_style(style.progress_chars("#>-"));
+    }
+
+    // Prepare a temporary file for the archive
+    let archive_ext = if os == "windows" { "zip" } else { "tar.gz" };
+    let temp_archive_path =
+        runtimes_dir.join(format!("temp_java_{}.{}", major_version, archive_ext));
+
+    let mut file = fs::File::create(&temp_archive_path).await?;
+    let mut stream = response.bytes_stream();
+
+    // 4. Stream chunks to disk and update progress bar
+    while let Some(chunk_result) = stream.next().await {
+        let chunk = chunk_result?;
+        file.write_all(&chunk).await?;
+        pb.inc(chunk.len() as u64);
+    }
+    pb.finish_with_message("Java download complete!");
+
+    // 5. Extract the archive (Only handling .tar.gz for Linux/Mac in this scope)
+    tracing::info!("Extracting Java {} archive...", major_version);
+    let target_dir_clone = target_dir.clone();
+
+    // Extraction is CPU-bound and blocking, so it must run in spawn_blocking
+    tokio::task::spawn_blocking(move || -> Result<(), std::io::Error> {
+        use flate2::read::GzDecoder;
+        use std::fs::File;
+        use tar::Archive;
+
+        let tar_gz = File::open(&temp_archive_path)?;
+        let tar = GzDecoder::new(tar_gz);
+        let mut archive = Archive::new(tar);
+
+        // Unpack directly into the target directory
+        archive.unpack(&target_dir_clone)?;
+
+        // Clean up the temporary archive file
+        std::fs::remove_file(&temp_archive_path)?;
+        Ok(())
+    })
+    .await??;
+
+    tracing::info!(
+        "Java {} successfully installed at {}",
+        major_version,
+        target_dir.display()
+    );
+
+    Ok(target_dir)
 }

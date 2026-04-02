@@ -25,6 +25,8 @@ async fn main() -> Result<(), AnyError> {
 
     // Load the launcher config
     let mut launcher_config = config::LauncherConfig::load().await;
+
+    #[allow(unused_assignments)]
     let mut final_java_executable: Option<PathBuf> = None;
 
     // Check if we already have a valid cached path for this version
@@ -61,19 +63,31 @@ async fn main() -> Result<(), AnyError> {
             }
         }
 
-        // Handle the case where scanning still fails (e.g., prompt user or trigger download)
-        if let Some(verified_path) = found_path {
-            // Update the cache and save to the TOML file
-            launcher_config
-                .java_paths
-                .insert(required_java_version, verified_path.clone());
-            launcher_config.save().await?;
+        if found_path.is_none() {
+            tracing::warn!("Java {} not found locally. Initiating automatic download...", required_java_version);
+            
+            // 1. Download and extract Java into the runtimes folder
+            let new_java_dir = java::download_java(required_java_version, &custom_runtime_dir).await?;
+            
+            // 2. Rescan the newly downloaded directory to dynamically find the exact bin/java path
+            let new_javas = java::scan_local_java_environments(Some(&new_java_dir)).await;
+            
+            if let Some(j) = new_javas.into_iter().find(|j| j.major_version == required_java_version) {
+                found_path = Some(j.path);
+            } else {
+                return Err(format!("Failed to locate Java executable after downloading version {}", required_java_version).into());
+            }
+        }
+        // ============================
 
+        // Update the cache and save to the TOML file
+        if let Some(verified_path) = found_path {
+            launcher_config.java_paths.insert(required_java_version, verified_path.clone());
+            launcher_config.save().await?;
             final_java_executable = Some(verified_path);
-        } else {
-            return Err(format!("Could not find Java {}", required_java_version).into());
         }
     }
+
 
     if let Some(v_info) = manifest.versions.iter().find(|v| v.id == target_version) {
         tracing::info!("Parsing data of {}...", target_version);
@@ -97,8 +111,8 @@ async fn main() -> Result<(), AnyError> {
         let classpath_libs = version::source::download_libraries(&detail).await?;
 
         version::source::download_assets(&detail).await?;
-        tracing::info!("\nAll core components of {} are ready!", target_version);
         tracing::info!("Core Path: {:?}", client_jar_path);
+        tracing::info!("\nAll core components of {} are ready!", target_version);
 
         launch::start_game(&detail, &client_jar_path, classpath_libs, "AuroBreeze", final_java_executable.as_ref().unwrap())?;
     }
