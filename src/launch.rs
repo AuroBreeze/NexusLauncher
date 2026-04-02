@@ -4,13 +4,15 @@ use crate::version::utils;
 use crate::version::AnyError;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use crate::cli;
+
 
 pub fn start_game(
     detail: &VersionDetail,
     client_jar: &Path,
     libraries: Vec<PathBuf>,
-    player_name: &str,
     java_executable: &Path,
+    cli: &cli::Cli
 ) -> Result<(), AnyError> {
     tracing::info!("Assembling startup parameters...");
 
@@ -40,15 +42,18 @@ pub fn start_game(
     // 3. Build and execute Java commands
     let mut cmd = Command::new(java_executable);
 
+
     // === A. JVM Runtime Parameters ===
-    cmd.arg("-Xmx2G");
+    let max_memory = format!("-Xmx{}M", cli.max_memory);
+
+    cmd.arg(max_memory);
     cmd.arg("-XX:+UseG1GC");
     cmd.arg("-cp").arg(classpath);
     cmd.arg(&detail.main_class);
 
     // === B. Core Game Parameters ===
-    cmd.arg("--username").arg(player_name);
-    cmd.arg("--version").arg(&detail.id);
+    cmd.arg("--username").arg(cli.player_name.clone());
+    cmd.arg("--version").arg(cli.game_version.clone());
 
     // Point gameDir to the version-specific isolated directory!
     cmd.arg("--gameDir").arg(&version_isolated_dir);

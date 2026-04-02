@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-clap = "4.6.0"
+clap = { version = "4.6.0", features = ["derive"] }
 flate2 = "1.1.9"
 futures-util = "0.3.32"
 hex = "0.4.3"

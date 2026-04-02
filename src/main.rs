@@ -2,12 +2,17 @@ mod config;
 mod java;
 mod launch;
 mod version;
+mod cli;
 
 use std::path::PathBuf;
 use version::AnyError;
+use clap::Parser;
 
 #[tokio::main]
 async fn main() -> Result<(), AnyError> {
+
+    let cli = cli::Cli::parse();
+
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -17,10 +22,15 @@ async fn main() -> Result<(), AnyError> {
 
     tracing::info!("Nexus Launcher Starting...");
     version::utils::init_workspace()?;
+    
+    // Print out the configuration we are using
+    tracing::info!("Target Version: {}", cli.game_version);
+    tracing::info!("Player Name: {}", cli.player_name);
+    tracing::info!("Allocated Memory: {} MB", cli.max_memory);
 
     let manifest = version::source::obtain_manifest().await?;
 
-    let target_version = "1.20.1";
+    let target_version = &cli.game_version;
     let required_java_version = 17;
 
     // Load the launcher config
@@ -89,7 +99,7 @@ async fn main() -> Result<(), AnyError> {
     }
 
 
-    if let Some(v_info) = manifest.versions.iter().find(|v| v.id == target_version) {
+    if let Some(v_info) = manifest.versions.iter().find(|v| v.id == *target_version) {
         tracing::info!("Parsing data of {}...", target_version);
         let detail = version::source::fetch_version_detail(&v_info.url).await?;
 
@@ -114,7 +124,7 @@ async fn main() -> Result<(), AnyError> {
         tracing::info!("Core Path: {:?}", client_jar_path);
         tracing::info!("\nAll core components of {} are ready!", target_version);
 
-        launch::start_game(&detail, &client_jar_path, classpath_libs, "AuroBreeze", final_java_executable.as_ref().unwrap())?;
+        launch::start_game(&detail, &client_jar_path, classpath_libs, final_java_executable.as_ref().unwrap(), &cli)?;
     }
 
     Ok(())
