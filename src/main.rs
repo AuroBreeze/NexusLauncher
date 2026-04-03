@@ -1,3 +1,4 @@
+mod auth;
 mod cli;
 mod config;
 mod java;
@@ -140,7 +141,33 @@ async fn main() -> Result<(), AnyError> {
         tracing::info!("Core Path: {:?}", client_jar_path);
         tracing::info!("\nAll core components of {} are ready!", target_version);
 
-        launch::start_game(&detail, &client_jar_path, classpath_libs, final_java_executable.as_ref().unwrap(), &cli)?;
+        // //  Retrieve the device code and display it
+        // let device_resp = auth::utils::get_device_code().await?;
+        // tracing::info!("Please open in your browser: {}", device_resp.verification_uri);
+        // tracing::info!("Enter the code: {}", device_resp.user_code);
+        //
+        // // Poll Microsoft Token
+        // let ms_token =
+        //     auth::utils::poll_for_ms_token(&device_resp.device_code, device_resp.interval).await?;
+        // tracing::info!("✅ Microsoft authentication successful");
+        //
+        // // 3. 换取 Xbox Token
+        // let (xbox_token, uhs) = auth::utils::get_xbox_token(&ms_token.access_token).await?;
+        //
+        // // 4. 换取 XSTS Token
+        // let xsts_token = auth::utils::get_xsts_token(&xbox_token).await?;
+        //
+        // // 5. 换取 Minecraft 令牌
+        // let mc_token = auth::utils::get_minecraft_token(&xsts_token, &uhs).await?;
+        // tracing::info!("✅ Minecraft token successfully obtained!");
+
+        launch::start_game(
+            &detail,
+            &client_jar_path,
+            classpath_libs,
+            final_java_executable.as_ref().unwrap(),
+            &cli,
+        )?;
     }
 
     Ok(())
