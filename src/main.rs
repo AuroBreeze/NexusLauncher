@@ -9,10 +9,17 @@ use clap::Parser;
 use std::path::PathBuf;
 use version::AnyError;
 
+use crate::{
+    cli::{AuthArgs, JavaArgs, LaunchArgs},
+    java::download_java,
+};
+
 #[tokio::main]
 async fn main() -> Result<(), AnyError> {
     let cli = cli::Cli::parse();
 
+    version::utils::init_workspace()?;
+    // Initialize the logger
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -20,17 +27,25 @@ async fn main() -> Result<(), AnyError> {
         )
         .init();
 
-    tracing::info!("Nexus Launcher Starting...");
-    version::utils::init_workspace()?;
+    match cli.command {
+        cli::Commands::Launch(args) => handle_launch(&args).await?,
+        cli::Commands::Java(args) => handle_java(&args).await?,
+        cli::Commands::Auth(args) => handle_auth(&args).await?,
+    }
 
+    Ok(())
+}
+
+async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
+    tracing::info!("Nexus Launcher Starting...");
     // Print out the configuration we are using
-    tracing::info!("Target Version: {}", cli.game_version);
-    tracing::info!("Player Name: {}", cli.player_name);
-    tracing::info!("Allocated Memory: {} MB", cli.max_memory);
+    tracing::info!("Target Version: {}", args.game_version);
+    tracing::info!("Player Name: {}", args.player_name);
+    tracing::info!("Allocated Memory: {} MB", args.max_memory);
 
     let manifest = version::source::obtain_manifest().await?;
 
-    let target_version = &cli.game_version;
+    let target_version = &args.game_version;
     let required_java_version = 17;
 
     // Load the launcher config
@@ -41,7 +56,7 @@ async fn main() -> Result<(), AnyError> {
 
     // Check if we already have a valid cached path for this version
     if let Some(cached_path) = launcher_config.get_valid_java(required_java_version).await
-        && !cli.force_scan
+        && !args.force_scan
     {
         tracing::info!(
             "Using cached Java {}: {}",
@@ -134,40 +149,71 @@ async fn main() -> Result<(), AnyError> {
             )
             .await?;
         }
-
         let classpath_libs = version::source::download_libraries(&detail).await?;
 
         version::source::download_assets(&detail).await?;
         tracing::info!("Core Path: {:?}", client_jar_path);
         tracing::info!("\nAll core components of {} are ready!", target_version);
 
-        // //  Retrieve the device code and display it
-        // let device_resp = auth::utils::get_device_code().await?;
-        // tracing::info!("Please open in your browser: {}", device_resp.verification_uri);
-        // tracing::info!("Enter the code: {}", device_resp.user_code);
-        //
-        // // Poll Microsoft Token
-        // let ms_token =
-        //     auth::utils::poll_for_ms_token(&device_resp.device_code, device_resp.interval).await?;
-        // tracing::info!("✅ Microsoft authentication successful");
-        //
-        // // 3. 换取 Xbox Token
-        // let (xbox_token, uhs) = auth::utils::get_xbox_token(&ms_token.access_token).await?;
-        //
-        // // 4. 换取 XSTS Token
-        // let xsts_token = auth::utils::get_xsts_token(&xbox_token).await?;
-        //
-        // // 5. 换取 Minecraft 令牌
-        // let mc_token = auth::utils::get_minecraft_token(&xsts_token, &uhs).await?;
-        // tracing::info!("✅ Minecraft token successfully obtained!");
+        // launch::start_game(
+        //     &detail,
+        //     &client_jar_path,
+        //     classpath_libs,
+        //     final_java_executable.as_ref().unwrap(),
+        //     &cli,
+        // )?;
+    }
 
-        launch::start_game(
-            &detail,
-            &client_jar_path,
-            classpath_libs,
-            final_java_executable.as_ref().unwrap(),
-            &cli,
-        )?;
+    Ok(())
+}
+
+async fn handle_java(args: &JavaArgs) -> Result<(), AnyError> {
+    if args.download {
+        let java_version = args.version;
+        let custom_runtime_dir = version::utils::get_minecraft_dir().join("runtimes");
+        download_java(java_version, custom_runtime_dir.as_path()).await?;
+    }
+    if args.scan {
+        tracing::info!("📦 Scanning local Java environments...");
+        let local_javas = java::scan_local_java_environments(None).await;
+        tracing::info!("📦 Found {} Java environments:", local_javas.len());
+        for j in local_javas {
+            tracing::info!(
+                "📦 Found Java {} (full version: {}) -> Path: {}",
+                j.major_version,
+                j.full_version,
+                j.path.display()
+            );
+        }
+    }
+
+    Ok(())
+}
+
+async fn handle_auth(args: &AuthArgs) -> Result<(), AnyError> {
+    if args.login {
+        //  Retrieve the device code and display it
+        let device_resp = auth::utils::get_device_code().await?;
+        tracing::info!(
+            "Please open in your browser: {}",
+            device_resp.verification_uri
+        );
+        tracing::info!("Enter the code: {}", device_resp.user_code);
+
+        // Poll Microsoft Token
+        let ms_token =
+            auth::utils::poll_for_ms_token(&device_resp.device_code, device_resp.interval).await?;
+        tracing::info!("✅ Microsoft authentication successful");
+
+        // 3. 换取 Xbox Token
+        let (xbox_token, uhs) = auth::utils::get_xbox_token(&ms_token.access_token).await?;
+
+        // 4. 换取 XSTS Token
+        let xsts_token = auth::utils::get_xsts_token(&xbox_token).await?;
+
+        // 5. obtain Minecraft token
+        let mc_token = auth::utils::get_minecraft_token(&xsts_token, &uhs).await?;
+        tracing::info!("✅ Minecraft token successfully obtained!");
     }
 
     Ok(())
