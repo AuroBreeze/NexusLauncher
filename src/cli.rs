@@ -1,4 +1,7 @@
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand, ValueEnum};
+use std::fmt::Display;
+use std::str::FromStr;
+
 
 #[derive(Parser)]
 #[command(name = "Nexus Launcher")]
@@ -21,6 +24,65 @@ pub enum Commands {
 
     /// check, download and install java
     Java(JavaArgs),
+
+    /// download and install mode
+    Mode(ModeArgs),
+
+    /// download and install loader
+    Loader(LoaderArgs),
+}
+
+
+#[derive(Debug, Clone, ValueEnum)]
+pub enum Loaders {
+    Fabric,
+    Quilt,
+}
+
+impl FromStr for Loaders {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "fabric" => Ok(Loaders::Fabric),
+            "quilt" => Ok(Loaders::Quilt),
+            _ => Err(format!("Invalid loader: {}. Expected 'fabric' or 'quilt'", s)),
+        }
+    }
+}
+
+impl Display for Loaders {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Loaders::Fabric => write!(f, "fabric"),
+            Loaders::Quilt => write!(f, "quilt"),
+        }
+    }
+}
+
+#[derive(Args, Debug)]
+pub struct LoaderArgs {
+    /// The game version to install the loader for
+    pub game_version: String,
+
+    #[arg(short, long)]
+    pub loader: Loaders,
+}
+
+
+#[derive(Args)]
+pub struct ModeArgs {
+    // Query
+    #[arg(short, long)]
+    pub query: String,
+
+    #[arg(short, long)]
+    pub game_version: String,
+
+    /// Download
+    #[arg(long, action = clap::ArgAction::SetTrue)]
+    pub download: bool,
+
 }
 
 #[derive(Args)]
@@ -69,3 +131,5 @@ pub struct JavaArgs {
     #[arg(long, action = clap::ArgAction::SetTrue)]
     pub download: bool,
 }
+
+

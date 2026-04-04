@@ -3,6 +3,8 @@ mod cli;
 mod config;
 mod java;
 mod launch;
+mod loader;
+mod mode;
 mod version;
 
 use clap::Parser;
@@ -31,6 +33,8 @@ async fn main() -> Result<(), AnyError> {
         cli::Commands::Launch(args) => handle_launch(&args).await?,
         cli::Commands::Java(args) => handle_java(&args).await?,
         cli::Commands::Auth(args) => handle_auth(&args).await?,
+        cli::Commands::Mode(args) => handle_mode(&args).await?,
+        cli::Commands::Loader(args) => handle_loader(&args).await?,
     }
 
     Ok(())
@@ -215,6 +219,32 @@ async fn handle_auth(args: &AuthArgs) -> Result<(), AnyError> {
         let mc_token = auth::utils::get_minecraft_token(&xsts_token, &uhs).await?;
         tracing::info!("✅ Minecraft token successfully obtained!");
     }
+    Ok(())
+}
 
+// TODO: will be implemented
+async fn handle_mode(args: &ModeArgs) -> Result<(), AnyError> {
+    if args.download {
+        search_mods(&args.query).await?;
+    }
+    Ok(())
+}
+
+async fn handle_loader(args: &LoaderArgs) -> Result<(), AnyError> {
+    let loader_verison = get_latest_loader(&args.game_version).await;
+    match loader_verison {
+        Ok(v) => {
+            tracing::info!("Latest Fabric Loader: {}", v);
+            let profile = get_fabric_profile(&args.game_version, &v).await?;
+            let mut extra_classpath: Vec<PathBuf> = install_fabric_libraries(&profile).await?;
+
+            let main_class = profile.main_class;
+            tracing::info!("Main Class: {}", main_class);
+            tracing::info!("Libraries: {:#?}", extra_classpath);
+        }
+        Err(e) => {
+            tracing::error!("Failed to fetch Fabric Loader: {}", e);
+        }
+    }
     Ok(())
 }
