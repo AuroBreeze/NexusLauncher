@@ -24,5 +24,3 @@ pub struct FabricLibrary {
     pub name: String,
     pub url: String,
 }
-
-

@@ -33,7 +33,10 @@ pub struct ModFile {
 
 pub async fn search_mods(query: &str) -> Result<SearchResult, AnyError> {
     let client = Client::new();
-    let url = format!("https://api.modrinth.com/v2/search?query={}&limit={}", query, 3);
+    let url = format!(
+        "https://api.modrinth.com/v2/search?query={}&limit={}",
+        query, 3
+    );
 
     let resp = client
         .get(url)

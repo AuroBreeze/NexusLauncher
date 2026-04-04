@@ -1,7 +1,6 @@
-use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-
+use std::path::PathBuf;
 
 /// The structure representing the launcher's persistent settings.
 #[derive(Debug, Serialize, Deserialize, Default)]

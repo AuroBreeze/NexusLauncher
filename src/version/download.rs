@@ -1,6 +1,6 @@
 use super::AnyError;
-use futures_util::StreamExt; // 新增
-use indicatif::{ProgressBar, ProgressStyle}; // 新增
+use futures_util::StreamExt;
+use indicatif::{ProgressBar, ProgressStyle};
 use sha1::{Digest, Sha1};
 use std::path::PathBuf;
 use tokio::fs;
@@ -69,6 +69,31 @@ pub async fn download_and_verify(
         return Err("SHA1 verification failed".into());
     }
 
-    tracing::info!("Successfully downloaded and verified: {}", file_name);
+    // tracing::info!("Successfully downloaded and verified: {}", file_name);
     Ok(())
+}
+
+pub async fn pool_download_and_link(
+    url: &str,
+    lib_relative_path: &str,
+) -> Result<PathBuf, AnyError> {
+    let libs_base = super::utils::get_minecraft_dir().join("libraries");
+    let objects_base = super::utils::get_minecraft_dir().join("objects");
+
+    let target_path = libs_base.join(lib_relative_path);
+
+    let pool_path = objects_base.join(lib_relative_path);
+
+    if !pool_path.exists() {
+        fs::create_dir_all(pool_path.parent().unwrap()).await?;
+        let resp = reqwest::get(url).await?.bytes().await?;
+        fs::write(&pool_path, resp).await?;
+    }
+
+    if !target_path.exists() {
+        fs::create_dir_all(target_path.parent().unwrap()).await?;
+        fs::hard_link(&pool_path, &target_path).await?;
+    }
+
+    Ok(target_path)
 }

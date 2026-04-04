@@ -2,7 +2,6 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 use std::fmt::Display;
 use std::str::FromStr;
 
-
 #[derive(Parser)]
 #[command(name = "Nexus Launcher")]
 #[command(about = "A high-performance Minecraft launcher written in Rust", long_about = None)]
@@ -32,7 +31,6 @@ pub enum Commands {
     Loader(LoaderArgs),
 }
 
-
 #[derive(Debug, Clone, ValueEnum)]
 pub enum Loaders {
     Fabric,
@@ -46,7 +44,10 @@ impl FromStr for Loaders {
         match s.to_lowercase().as_str() {
             "fabric" => Ok(Loaders::Fabric),
             "quilt" => Ok(Loaders::Quilt),
-            _ => Err(format!("Invalid loader: {}. Expected 'fabric' or 'quilt'", s)),
+            _ => Err(format!(
+                "Invalid loader: {}. Expected 'fabric' or 'quilt'",
+                s
+            )),
         }
     }
 }
@@ -69,7 +70,6 @@ pub struct LoaderArgs {
     pub loader: Loaders,
 }
 
-
 #[derive(Args)]
 pub struct ModeArgs {
     // Query
@@ -82,7 +82,6 @@ pub struct ModeArgs {
     /// Download
     #[arg(long, action = clap::ArgAction::SetTrue)]
     pub download: bool,
-
 }
 
 #[derive(Args)]
@@ -131,5 +130,3 @@ pub struct JavaArgs {
     #[arg(long, action = clap::ArgAction::SetTrue)]
     pub download: bool,
 }
-
-

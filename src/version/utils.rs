@@ -56,3 +56,20 @@ pub fn is_path_safe(target: &Path) -> bool {
     let base = get_minecraft_dir();
     target.starts_with(base)
 }
+
+/// Converts a maven coordinate to a path
+pub fn maven_to_path(name: &str) -> String {
+    let parts: Vec<&str> = name.split(':').collect();
+    if parts.len() < 3 {
+        return name.to_string();
+    }
+
+    let group = parts[0].replace('.', "/");
+    let artifact = parts[1];
+    let version = parts[2];
+
+    format!(
+        "{}/{}/{}/{}-{}.jar",
+        group, artifact, version, artifact, version
+    )
+}
