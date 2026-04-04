@@ -1,9 +1,6 @@
 use super::models::{CLIENT_ID, DeviceCodeResponse, MicrosoftToken};
 use crate::version::AnyError;
 use reqwest::Client;
-use std::error::Error;
-
-// src/auth/utils.rs
 
 pub async fn get_device_code() -> Result<DeviceCodeResponse, AnyError> {
     let client = Client::new();
@@ -110,9 +107,7 @@ pub async fn get_xsts_token(xbox_token: &str) -> Result<String, AnyError> {
 
 pub async fn get_minecraft_token(xsts_token: &str, uhs: &str) -> Result<String, AnyError> {
     let client = Client::new();
-    let body = serde_json::json!({
-        "identityToken": format!("XBL3.0 x={};{}", uhs, xsts_token)
-    });
+    let body = serde_json::json!({ "identityToken": format!("XBL3.0 x={};{}", uhs, xsts_token) });
 
     let res = client
         .post("https://api.minecraftservices.com/authentication/login_with_xbox")
@@ -133,4 +128,71 @@ pub async fn get_minecraft_token(xsts_token: &str, uhs: &str) -> Result<String, 
         .as_str()
         .ok_or("No access_token in response")?
         .to_string())
+}
+
+pub async fn check_ownership(mc_token: &str) -> Result<bool, AnyError> {
+    let client = Client::new();
+    let res = client
+        .get("https://api.minecraftservices.com/entitlements/mcstore")
+        .bearer_auth(mc_token)
+        .send()
+        .await?;
+
+    let status = res.status();
+    if !status.is_success() {
+        let text = res.text().await?;
+        return Err(format!("Failed to check entitlements ({}): {}", status, text).into());
+    }
+
+    let val: super::models::EntitlementsResponse = res.json().await?;
+
+    // check if the items list is not empty and contains "game_minecraft"
+    // normally, this means the user owns the game
+    let has_game = val.items.iter().any(|item| item.name == "game_minecraft");
+
+    Ok(has_game)
+}
+
+pub async fn get_minecraft_profile(
+    mc_token: &str,
+) -> Result<super::models::MinecraftProfile, AnyError> {
+    let client = Client::new();
+    let res = client
+        .get("https://api.minecraftservices.com/minecraft/profile")
+        .bearer_auth(mc_token)
+        .send()
+        .await?;
+
+    let status = res.status();
+    if !status.is_success() {
+        let text = res.text().await?;
+        return Err(format!("Failed to get profile ({}): {}", status, text).into());
+    }
+
+    let profile: super::models::MinecraftProfile = res.json().await?;
+    Ok(profile)
+}
+
+///  Refresh the Microsoft Token
+pub async fn refresh_ms_token(refresh_token: &str) -> Result<MicrosoftToken, AnyError> {
+    let client = Client::new();
+    let res = client
+        .post("https://login.microsoftonline.com/consumers/oauth2/v2.0/token")
+        .form(&[
+            ("client_id", CLIENT_ID),
+            ("grant_type", "refresh_token"),
+            ("refresh_token", refresh_token),
+        ])
+        .send()
+        .await?;
+
+    let status = res.status();
+    let text = res.text().await?;
+
+    if !status.is_success() {
+        return Err(format!("Refresh MS Token Failed ({}): {}", status, text).into());
+    }
+
+    let new_token: MicrosoftToken = serde_json::from_str(&text)?;
+    Ok(new_token)
 }

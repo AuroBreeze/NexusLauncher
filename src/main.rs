@@ -12,7 +12,12 @@ use std::path::PathBuf;
 use version::AnyError;
 
 use crate::{
-    cli::{AuthArgs, JavaArgs, LaunchArgs, LoaderArgs, ModeArgs}, config::models::LauncherConfig, java::download_java, launch::launcher::start_game, loader::fabric::{get_fabric_profile, get_latest_loader, install_fabric_libraries}, mode::models::search_mods
+    cli::{AuthArgs, JavaArgs, LaunchArgs, LoaderArgs, ModeArgs},
+    config::models::LauncherConfig,
+    java::download_java,
+    launch::launcher::start_game,
+    loader::fabric::{get_fabric_profile, get_latest_loader, install_fabric_libraries},
+    mode::models::search_mods,
 };
 
 #[tokio::main]
@@ -151,8 +156,6 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
                 detail.downloads.client.sha1.as_str(),
             )
             .await?;
-
-
         }
         let classpath_libs = version::source::download_libraries(&detail).await?;
 
@@ -219,6 +222,30 @@ async fn handle_auth(args: &AuthArgs) -> Result<(), AnyError> {
         // 5. obtain Minecraft token
         let mc_token = auth::utils::get_minecraft_token(&xsts_token, &uhs).await?;
         tracing::info!("✅ Minecraft token successfully obtained!");
+        // 6. check game ownership
+        tracing::info!("Verifying game ownership...");
+        let is_owner = auth::utils::check_ownership(&mc_token).await?;
+
+        if !is_owner {
+            tracing::error!(
+                "❌ Verification failed: This account has not purchased Minecraft for Java Edition!"
+            );
+            return Err("Account does not own the game".into());
+        }
+        tracing::info!("✅ Permission verified: You own the game");
+
+        // 7. Get player profile (UUID and nickname)
+        let profile = auth::utils::get_minecraft_profile(&mc_token).await?;
+        tracing::info!("🚀 Login successful! Welcome back, {}!", profile.name);
+        tracing::info!("Player UUID: {}", profile.id);
+
+        if let Some(refresh_token) = ms_token.refresh_token {
+            // Use the player's UUID or nickname as the key
+            auth::storage::save_token(&profile.id, &refresh_token)?;
+            tracing::info!(
+                "✅ The security credentials have been encrypted and stored in the system credential manager."
+            );
+        }
     }
     Ok(())
 }

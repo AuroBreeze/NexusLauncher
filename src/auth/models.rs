@@ -49,3 +49,14 @@ pub struct MinecraftProfile {
     pub id: String,
     pub name: String,
 }
+
+#[derive(Deserialize, Debug)]
+pub struct EntitlementsResponse {
+    pub items: Vec<EntitlementItem>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct EntitlementItem {
+    pub name: String,
+    pub signature: String,
+}
