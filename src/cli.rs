@@ -29,6 +29,28 @@ pub enum Commands {
 
     /// download and install loader
     Loader(LoaderArgs),
+
+    /// set and get options
+    Set(SetArgs),
+}
+
+#[derive(Args)]
+pub struct SetArgs {
+    /// Set a game name that becomes invalid when logging in with a genuine copy
+    #[arg(short, long)]
+    pub name: Option<String>,
+
+    /// Set a game UUID that becomes invalid when logging in with a genuine copy
+    #[arg(short, long)]
+    pub uuid: Option<String>,
+
+    /// Display settings
+    #[arg(short, long, action = clap::ArgAction::SetTrue)]
+    pub show: bool,
+
+    /// Enable offline login
+    #[arg(short, long, default_value = None)]
+    pub offline: Option<bool>,
 }
 
 #[derive(Debug, Clone, ValueEnum)]
@@ -113,7 +135,7 @@ pub struct AuthArgs {
 
     /// clear auth
     #[arg(long)]
-    pub logout: Option<String>,
+    pub logout: String,
 }
 
 #[derive(Args)]

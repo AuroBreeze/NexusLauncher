@@ -1,4 +1,5 @@
 mod auth;
+
 mod cli;
 mod config;
 mod java;
@@ -11,10 +12,12 @@ use clap::Parser;
 use std::path::PathBuf;
 use version::AnyError;
 
+use crate::config::config::Config;
+use crate::config::models::LaunchConfig;
 use crate::{
     auth::utils::silent_login,
-    cli::{AuthArgs, JavaArgs, LaunchArgs, LoaderArgs, ModeArgs},
-    config::models::LauncherConfig,
+    cli::{AuthArgs, JavaArgs, LaunchArgs, LoaderArgs, ModeArgs, SetArgs},
+    config::models::UserConfig,
     java::download_java,
     launch::launcher::start_game,
     loader::fabric::{get_fabric_profile, get_latest_loader, install_fabric_libraries},
@@ -40,6 +43,7 @@ async fn main() -> Result<(), AnyError> {
         cli::Commands::Auth(args) => handle_auth(&args).await?,
         cli::Commands::Mode(args) => handle_mode(&args).await?,
         cli::Commands::Loader(args) => handle_loader(&args).await?,
+        cli::Commands::Set(args) => handle_set(&args).await?,
     }
 
     Ok(())
@@ -57,8 +61,9 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
     let target_version = &args.game_version;
     let required_java_version = 17;
 
-    // Load the launcher config
-    let mut launcher_config = LauncherConfig::load().await;
+    // Load the launcher and user config
+    let mut user_config = UserConfig::load().await;
+    let mut launcher_config = LaunchConfig::load().await;
 
     #[allow(unused_assignments)]
     let mut final_java_executable: Option<PathBuf> = None;
@@ -135,7 +140,7 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
             launcher_config
                 .java_paths
                 .insert(required_java_version, verified_path.clone());
-            launcher_config.save().await?;
+            user_config.save().await?;
             final_java_executable = Some(verified_path);
         }
     }
@@ -163,7 +168,7 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
         tracing::info!("Core Path: {:?}", client_jar_path);
         tracing::info!("\nAll core components of {} are ready!", target_version);
 
-        let content = LauncherConfig::load().await;
+        let content = UserConfig::load().await;
         let uuid = content.user_profile.online.uuid;
         let access_token = silent_login(&uuid).await?;
         // let access_token = "offline_token".to_string();
@@ -191,7 +196,7 @@ async fn handle_java(args: &JavaArgs) -> Result<(), AnyError> {
     if args.scan {
         tracing::info!("📦 Scanning local Java environments...");
 
-        let mut config = LauncherConfig::load().await;
+        let mut config = LaunchConfig::load().await;
         let local_javas = java::scan_local_java_environments(None).await;
 
         tracing::info!("📦 Found {} Java environments:", local_javas.len());
@@ -261,18 +266,21 @@ async fn handle_auth(args: &AuthArgs) -> Result<(), AnyError> {
             );
         }
 
-        let mut config = LauncherConfig::load().await;
+        let mut config = UserConfig::load().await;
         config.user_profile.online.username = profile.name.clone();
         config.user_profile.online.uuid = profile.id.clone();
 
-        config.username.insert(profile.name.clone(), profile.id.clone());
+        config
+            .username
+            .insert(profile.name.clone(), profile.id.clone());
 
         config.save().await?;
         tracing::info!("✅ Username has been saved in the launcher config.");
     }
 
-    if let Some(name) = &args.logout {
-        let mut config = LauncherConfig::load().await;
+    if !args.logout.is_empty() {
+        let name = &args.logout;
+        let mut config = UserConfig::load().await;
         let uuid = config.username.get(name).unwrap();
         // TODO: Also need to remove user_profile.online and username from the config file
         auth::storage::delete_token(uuid).unwrap();
@@ -280,7 +288,9 @@ async fn handle_auth(args: &AuthArgs) -> Result<(), AnyError> {
         config.user_profile.online.username = "".to_string();
         config.user_profile.online.uuid = "".to_string();
         config.save().await.unwrap();
-        tracing::info!("✅ Security credentials have been deleted from the system credential manager.");
+        tracing::info!(
+            "✅ Security credentials have been deleted from the system credential manager."
+        );
     }
 
     Ok(())
@@ -310,5 +320,24 @@ async fn handle_loader(args: &LoaderArgs) -> Result<(), AnyError> {
             tracing::error!("Failed to fetch Fabric Loader: {}", e);
         }
     }
+    Ok(())
+}
+
+async fn handle_set(args: &SetArgs) -> Result<(), AnyError> {
+    let mut config = UserConfig::load().await;
+
+    if let Some(username) = args.name.as_ref() {
+        config.user_profile.online.username = username.clone();
+    }
+
+    if let Some(uuid) = args.uuid.as_ref() {
+        config.user_profile.online.uuid = uuid.clone();
+    }
+
+    if args.show {
+        tracing::info!("Offline profile: {:#?}", config.user_profile.offline);
+    }
+
+    config.save().await?;
     Ok(())
 }

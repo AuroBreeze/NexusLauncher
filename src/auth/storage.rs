@@ -66,7 +66,10 @@ pub fn delete_token(uuid: &str) -> Result<(), AnyError> {
 
     if file_path.exists() {
         fs::remove_file(file_path)?;
-        tracing::info!("The hardware encryption credentials have been physically destroyed: {}", uuid);
+        tracing::info!(
+            "The hardware encryption credentials have been physically destroyed: {}",
+            uuid
+        );
     }
     Ok(())
 }

@@ -1,12 +1,9 @@
-// src/launch.rs
-
-use crate::auth::storage::get_refresh_token;
-use crate::auth::utils::refresh_ms_token;
 use crate::cli::LaunchArgs;
-use crate::config::models::LauncherConfig;
+use crate::config::config::Config;
+use crate::config::models::UserConfig;
+use crate::version::AnyError;
 use crate::version::models::VersionDetail;
 use crate::version::utils::{self, get_clients_dir};
-use crate::version::AnyError;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -56,9 +53,9 @@ pub fn start_game(
     cmd.arg(&detail.main_class);
 
     // === B. Core Game Parameters ===
-    let path = LauncherConfig::get_config_path();
+    let path = UserConfig::get_config_path();
     let content = fs::read_to_string(path)?;
-    let config: LauncherConfig = toml::from_str(&content)?;
+    let config: UserConfig = toml::from_str(&content)?;
 
     let username = &config.user_profile.online.username;
     let uuid = &config.user_profile.online.username;
