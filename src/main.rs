@@ -12,10 +12,7 @@ use std::path::PathBuf;
 use version::AnyError;
 
 use crate::{
-    auth::{
-        storage::get_refresh_token,
-        utils::{refresh_ms_token, silent_login},
-    },
+    auth::utils::silent_login,
     cli::{AuthArgs, JavaArgs, LaunchArgs, LoaderArgs, ModeArgs},
     config::models::LauncherConfig,
     java::download_java,
@@ -167,7 +164,7 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
         tracing::info!("\nAll core components of {} are ready!", target_version);
 
         let content = LauncherConfig::load().await;
-        let uuid = content.user_profile.uuid;
+        let uuid = content.user_profile.online.uuid;
         let access_token = silent_login(&uuid).await?;
         // let access_token = "offline_token".to_string();
 
@@ -265,14 +262,26 @@ async fn handle_auth(args: &AuthArgs) -> Result<(), AnyError> {
         }
 
         let mut config = LauncherConfig::load().await;
-        config.user_profile.username = profile.name;
-        config.user_profile.uuid = profile.id;
+        config.user_profile.online.username = profile.name.clone();
+        config.user_profile.online.uuid = profile.id.clone();
+
+        config.username.insert(profile.name.clone(), profile.id.clone());
 
         config.save().await?;
         tracing::info!("✅ Username has been saved in the launcher config.");
     }
 
-    if let Some(name) = &args.logout {}
+    if let Some(name) = &args.logout {
+        let mut config = LauncherConfig::load().await;
+        let uuid = config.username.get(name).unwrap();
+        // TODO: Also need to remove user_profile.online and username from the config file
+        auth::storage::delete_token(uuid).unwrap();
+        config.username.remove(name);
+        config.user_profile.online.username = "".to_string();
+        config.user_profile.online.uuid = "".to_string();
+        config.save().await.unwrap();
+        tracing::info!("✅ Security credentials have been deleted from the system credential manager.");
+    }
 
     Ok(())
 }

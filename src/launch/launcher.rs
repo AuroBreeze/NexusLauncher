@@ -4,9 +4,9 @@ use crate::auth::storage::get_refresh_token;
 use crate::auth::utils::refresh_ms_token;
 use crate::cli::LaunchArgs;
 use crate::config::models::LauncherConfig;
-use crate::version::AnyError;
 use crate::version::models::VersionDetail;
 use crate::version::utils::{self, get_clients_dir};
+use crate::version::AnyError;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -60,8 +60,8 @@ pub fn start_game(
     let content = fs::read_to_string(path)?;
     let config: LauncherConfig = toml::from_str(&content)?;
 
-    let username = config.user_profile.username;
-    let uuid = config.user_profile.uuid;
+    let username = &config.user_profile.online.username;
+    let uuid = &config.user_profile.online.username;
 
     cmd.arg("--username").arg(username);
     cmd.arg("--version").arg(cli.game_version.clone());
@@ -77,7 +77,22 @@ pub fn start_game(
     cmd.arg("--accessToken").arg(access_token);
     cmd.arg("--userType").arg("mojang");
     cmd.arg("--versionType").arg("release");
-    tracing::info!("Execute command: {:?}", cmd);
+
+    // protect the access token
+    let args_preview: Vec<String> = cmd
+        .get_args()
+        .map(|arg| {
+            let s = arg.to_string_lossy();
+            // If the parameter is `accessToken`, hide its contents
+            if s.len() > 20 && !s.contains('/') {
+                "********".to_string()
+            } else {
+                s.into_owned()
+            }
+        })
+        .collect();
+
+    tracing::info!("Execute command: {:?}", args_preview);
 
     // 4. Start a child process
     let mut child = cmd.spawn()?;

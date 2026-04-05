@@ -119,8 +119,8 @@ pub async fn get_minecraft_token(xsts_token: &str, uhs: &str) -> Result<String, 
         .await?;
     let status = res.status();
     let text = res.text().await?;
-    tracing::info!("Minecraft Login Response: {}", text);
-    tracing::info!("Minecraft Login Response Status: {}", status);
+    // tracing::info!("Minecraft Login Response: {}", text);
+    // tracing::info!("Minecraft Login Response Status: {}", status);
 
     if !status.is_success() {
         return Err(format!("Minecraft Login Failed ({}): {}", status, text).into());

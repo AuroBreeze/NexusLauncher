@@ -59,3 +59,14 @@ pub fn get_refresh_token(uuid: &str) -> Result<String, AnyError> {
 
     Ok(String::from_utf8(plaintext)?)
 }
+
+pub fn delete_token(uuid: &str) -> Result<(), AnyError> {
+    let vault_dir = get_minecraft_dir().join("auth_vault");
+    let file_path = vault_dir.join(uuid);
+
+    if file_path.exists() {
+        fs::remove_file(file_path)?;
+        tracing::info!("The hardware encryption credentials have been physically destroyed: {}", uuid);
+    }
+    Ok(())
+}
