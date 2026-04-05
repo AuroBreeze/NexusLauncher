@@ -181,9 +181,13 @@ async fn handle_java(args: &JavaArgs) -> Result<(), AnyError> {
         let custom_runtime_dir = version::utils::get_minecraft_dir().join("runtimes");
         download_java(java_version, custom_runtime_dir.as_path()).await?;
     }
+
     if args.scan {
         tracing::info!("📦 Scanning local Java environments...");
+
+        let mut config = LauncherConfig::load().await;
         let local_javas = java::scan_local_java_environments(None).await;
+
         tracing::info!("📦 Found {} Java environments:", local_javas.len());
         for j in local_javas {
             tracing::info!(
@@ -192,7 +196,11 @@ async fn handle_java(args: &JavaArgs) -> Result<(), AnyError> {
                 j.full_version,
                 j.path.display()
             );
+
+            config.java_paths.insert(j.major_version, j.path.clone());
         }
+
+        config.save().await?;
     }
 
     Ok(())
@@ -246,7 +254,25 @@ async fn handle_auth(args: &AuthArgs) -> Result<(), AnyError> {
                 "✅ The security credentials have been encrypted and stored in the system credential manager."
             );
         }
+
+        let mut config = LauncherConfig::load().await;
+        config.user_profile.username = profile.name;
+        config.user_profile.uuid = profile.id;
+        config.save().await?;
+        tracing::info!("✅ Username has been saved in the launcher config.");
     }
+
+    if let Some(name) = &args.logout {
+        match auth::storage::delete_token(name) {
+            Ok(()) => {
+                tracing::info!("✅ Successfully logged out of {}", name);
+            }
+            Err(e) => {
+                tracing::error!("❌ Failed to log out of {}: {}", name, e);
+            }
+        }
+    }
+
     Ok(())
 }
 

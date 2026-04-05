@@ -108,12 +108,12 @@ pub struct LaunchArgs {
 #[derive(Args)]
 pub struct AuthArgs {
     /// Sign in with Microsoft Device ID
-    #[arg(long)]
+    #[arg(long, conflicts_with = "logout")]
     pub login: bool,
 
     /// clear auth
     #[arg(long)]
-    pub logout: bool,
+    pub logout: Option<String>,
 }
 
 #[derive(Args)]

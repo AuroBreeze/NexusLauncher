@@ -2,14 +2,12 @@ use super::models::LauncherConfig;
 use crate::java;
 use crate::version::AnyError;
 use crate::version::utils;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::path::PathBuf;
 use tokio::fs;
 
 impl LauncherConfig {
     /// Gets the path to the configuration file (e.g., ~/.minecraft/nexus_config.toml)
-    fn get_config_path() -> PathBuf {
+    pub fn get_config_path() -> PathBuf {
         utils::get_minecraft_dir().join("nexus_config.toml")
     }
 
@@ -40,9 +38,15 @@ impl LauncherConfig {
     /// Saves the current configuration to disk as a TOML file.
     pub async fn save(&self) -> Result<(), AnyError> {
         let path = Self::get_config_path();
+        // Create a temporary file
+        let temp_path = path.with_extension("toml.tmp");
+
         // Serialize the struct into a nicely formatted TOML string
         let content = toml::to_string_pretty(self)?;
-        fs::write(&path, content).await?;
+        fs::write(&temp_path, content).await?;
+
+        // Move the temporary file into place
+        fs::rename(&temp_path, &path).await?;
         tracing::debug!("Launcher configuration saved to {}", path.display());
         Ok(())
     }
