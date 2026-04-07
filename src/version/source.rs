@@ -52,7 +52,7 @@ pub async fn download_libraries(detail: &VersionDetail) -> Result<Vec<PathBuf>, 
 
     let main_pb = mp.add(ProgressBar::new(tasks.len() as u64));
     main_pb.set_style(ProgressStyle::with_template(
-        " {spinner:.green} Overall progress: [{wide_bar:.green/white}] {pos}/{len} ({percent}%)",
+    " {spinner:.green} Overall progress: [{wide_bar:.green/white}] {pos}/{len} ({percent}%) | {msg:50!}"
     )?);
 
     let mut classpath_libs = Vec::new();
@@ -65,14 +65,15 @@ pub async fn download_libraries(detail: &VersionDetail) -> Result<Vec<PathBuf>, 
         let local_path = utils::get_library_path(&artifact.path);
         classpath_libs.push(local_path.clone());
 
+        let pb = main_pb.clone();
+        let name_clone = name.clone();
         if !local_path.exists() {
             let sem_clone = Arc::clone(&semaphore);
 
             set.spawn(async move {
+                pb.set_message(format!("📥 {}", name_clone));
                 // 2. Obtain permission; only tasks that have been granted permission can continue to be executed
                 let _permit = sem_clone.acquire_owned().await.unwrap();
-
-                tracing::info!("Downloading dependency: {}", name);
 
                 // 3. Add simple retry logic
                 let mut attempts = 0;
@@ -94,8 +95,11 @@ pub async fn download_libraries(detail: &VersionDetail) -> Result<Vec<PathBuf>, 
                                 e
                             );
                             last_error = Some(e);
+
                             if attempts < max_attempts {
-                                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                                let wait_time = 2u64.pow(attempts - 1);
+                                tokio::time::sleep(tokio::time::Duration::from_secs(wait_time))
+                                    .await;
                             }
                         }
                     }
@@ -103,6 +107,7 @@ pub async fn download_libraries(detail: &VersionDetail) -> Result<Vec<PathBuf>, 
                 Err(last_error.unwrap())
             });
         } else {
+            main_pb.set_message(format!("✅ Cached: {}", name));
             main_pb.inc(1);
         }
     }
@@ -112,6 +117,7 @@ pub async fn download_libraries(detail: &VersionDetail) -> Result<Vec<PathBuf>, 
         main_pb.inc(1);
     }
 
+    main_pb.set_message("Done!");
     main_pb.finish_with_message("All dependent libraries are ready");
     Ok(classpath_libs)
 }
@@ -146,7 +152,7 @@ pub async fn download_assets(detail: &VersionDetail) -> Result<(), AnyError> {
     let tasks = asset_manifest.objects;
     let main_pb = mp.add(ProgressBar::new(tasks.len() as u64));
     main_pb.set_style(ProgressStyle::with_template(
-        " {spinner:.yellow} Resource file: [{wide_bar:.yellow/white}] {pos}/{len} ({percent}%)",
+        " {spinner:.yellow} Resource file: [{wide_bar:.yellow/white}] {pos}/{len} ({percent}%) | {msg:50!}",
     )?);
 
     let mut set = JoinSet::new();
@@ -162,6 +168,9 @@ pub async fn download_assets(detail: &VersionDetail) -> Result<(), AnyError> {
         let local_path = objects_dir.join(prefix).join(&hash);
         let download_url = format!("{}/{}/{}", base_url, prefix, hash);
 
+        let pb = main_pb.clone();
+        let name_clone = path_name.clone();
+
         if !local_path.exists() {
             // Control concurrency: If the limit is reached, wait for one to finish
             while set.len() >= max_concurrent {
@@ -174,6 +183,7 @@ pub async fn download_assets(detail: &VersionDetail) -> Result<(), AnyError> {
             let name_for_log = path_name.clone();
             // Launch the task with retry logic
             set.spawn(async move {
+                pb.set_message(format!("📥 {}", name_clone));
                 let mut attempts = 0;
                 let max_retries = 3; // Maximum number of retries
 
@@ -206,6 +216,8 @@ pub async fn download_assets(detail: &VersionDetail) -> Result<(), AnyError> {
                 }
             });
         } else {
+            main_pb.set_message(format!("✅ Cached: {}", path_name));
+
             main_pb.inc(1);
         }
     }
