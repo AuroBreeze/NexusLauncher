@@ -25,7 +25,7 @@ pub struct UserProfile {
 }
 
 /// The structure representing the launcher's persistent settings.
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct LaunchConfig {
     /// A mapping from Java major version to its executable path
     /// e.g., 17 = "/usr/lib/jvm/java-17-openjdk/bin/java"

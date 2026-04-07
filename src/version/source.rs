@@ -87,13 +87,17 @@ pub async fn download_libraries(detail: &VersionDetail) -> Result<Vec<PathBuf>, 
                         Ok(_) => return Ok(()),
                         Err(e) => {
                             attempts += 1;
-                            tracing::warn!(
+                            // tracing::warn!(
+                            //     "⏳ [{}] Download failed (Attempt {}/{}): {}",
+                            //     name,
+                            //     attempts,
+                            //     max_attempts,
+                            //     e
+                            // );
+                            pb.set_message(format!(
                                 "⏳ [{}] Download failed (Attempt {}/{}): {}",
-                                name,
-                                attempts,
-                                max_attempts,
-                                e
-                            );
+                                name, attempts, max_attempts, e
+                            ));
                             last_error = Some(e);
 
                             if attempts < max_attempts {
@@ -203,13 +207,17 @@ pub async fn download_assets(detail: &VersionDetail) -> Result<(), AnyError> {
 
                             // Exponential backoff wait: 1s, 2s, 4s
                             let wait_time = 2u64.pow(attempts - 1);
-                            tracing::warn!(
+                            // tracing::warn!(
+                            //     "⏳ Resource download retry ({}/{}) [{}]: {}",
+                            //     attempts,
+                            //     max_retries,
+                            //     name_for_log,
+                            //     e
+                            // );
+                            pb.set_message(format!(
                                 "⏳ Resource download retry ({}/{}) [{}]: {}",
-                                attempts,
-                                max_retries,
-                                name_for_log,
-                                e
-                            );
+                                attempts, max_retries, name_for_log, e
+                            ));
                             tokio::time::sleep(tokio::time::Duration::from_secs(wait_time)).await;
                         }
                     }

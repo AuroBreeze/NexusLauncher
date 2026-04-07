@@ -56,9 +56,6 @@ async fn main() -> Result<(), AnyError> {
 async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
     tracing::info!("Nexus Launcher Starting...");
     // Print out the configuration we are using
-    tracing::info!("Target Version: {}", args.game_version);
-    tracing::info!("Player Name: {}", args.player_name);
-    tracing::info!("Allocated Memory: {} MB", args.max_memory);
 
     let manifest = version::source::obtain_manifest().await?;
     let target_version = &args.game_version;
@@ -145,20 +142,19 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
 
             if let Some(java_path) = found {
                 tracing::info!(
-        "✅ Found downloaded Java {} at {}",
-        required_java_version,
-        java_path.display()
-        );
+                    "✅ Found downloaded Java {} at {}",
+                    required_java_version,
+                    java_path.display()
+                );
                 found_path = Some(java_path);
             } else {
                 return Err(format!(
                     "Java downloaded but executable not found in {:?}",
                     new_java_dir
-                ).into());
+                )
+                .into());
             }
         }
-
-
 
         // Update the cache and save to the TOML file
         if let Some(verified_path) = found_path {
@@ -194,12 +190,18 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
         tracing::info!("\nAll core components of {} are ready!", target_version);
 
         let access_token;
-        let username;
-        let uuid;
+        let mut username;
+        let mut uuid;
         if launcher_config.offline {
             access_token = "offline_token".to_string();
             username = user_config.user_profile.offline.username.clone();
             uuid = user_config.user_profile.offline.uuid.clone();
+            if username.is_empty() {
+                username = "Default".to_string();
+            }
+            if uuid.is_empty() {
+                uuid = "offline".to_string();
+            }
 
             tracing::info!("offline name: {}", username);
             tracing::info!("offline uuid: {}", uuid);
@@ -225,6 +227,14 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
             libraries: classpath_libs,
             asset_index_id: detail.asset_index.id.clone(),
         };
+
+        tracing::info!("Target Version: {}", launch_context.version_id);
+        tracing::info!("Player Name: {}", launch_context.user.username);
+        tracing::info!("Player UUID: {}", launch_context.user.uuid);
+        tracing::info!(
+            "Allocated Memory: {} MB",
+            launch_context.max_memory.unwrap()
+        );
 
         start_game(launch_context)?;
     }

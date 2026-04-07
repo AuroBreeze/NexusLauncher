@@ -1,11 +1,21 @@
 use crate::config::{config::Config, models::LaunchConfig};
 use crate::java::check_java_executable;
 use crate::version::utils;
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 impl Config for LaunchConfig {
     fn get_config_path() -> PathBuf {
         utils::get_minecraft_dir().join("launch_config.toml")
+    }
+}
+
+impl Default for LaunchConfig {
+    fn default() -> Self {
+        Self {
+            java_paths: HashMap::new(),
+            offline: true,
+        }
     }
 }
 
