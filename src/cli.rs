@@ -7,7 +7,8 @@ use std::str::FromStr;
 #[command(about = "A high-performance Minecraft launcher written in Rust", long_about = None)]
 pub struct Cli {
     #[command(subcommand)]
-    pub command: Commands,
+    pub command: Option<Commands>, //  Option
+
 
     #[arg(short, long, global = true)]
     pub debug: bool,

@@ -278,7 +278,7 @@ pub async fn download_java(major_version: u32, runtimes_dir: &Path) -> Result<Pa
         std::fs::remove_file(&temp_archive_path)?;
         Ok(())
     })
-        .await??;
+    .await??;
 
     tracing::info!(
         "Java {} successfully installed at {}",

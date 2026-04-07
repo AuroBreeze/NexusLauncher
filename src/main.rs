@@ -38,12 +38,16 @@ async fn main() -> Result<(), AnyError> {
         .init();
 
     match cli.command {
-        cli::Commands::Launch(args) => handle_launch(&args).await?,
-        cli::Commands::Java(args) => handle_java(&args).await?,
-        cli::Commands::Auth(args) => handle_auth(&args).await?,
-        cli::Commands::Mode(args) => handle_mode(&args).await?,
-        cli::Commands::Loader(args) => handle_loader(&args).await?,
-        cli::Commands::Set(args) => handle_set(&args).await?,
+        Some(cli::Commands::Launch(args)) => handle_launch(&args).await?,
+        Some(cli::Commands::Java(args)) => handle_java(&args).await?,
+        Some(cli::Commands::Auth(args)) => handle_auth(&args).await?,
+        Some(cli::Commands::Mode(args)) => handle_mode(&args).await?,
+        Some(cli::Commands::Loader(args)) => handle_loader(&args).await?,
+        Some(cli::Commands::Set(args)) => handle_set(&args).await?,
+
+        None => {
+            println!("Please specify a command. Use --help");
+        }
     }
 
     Ok(())
@@ -117,29 +121,51 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
                 java::download_java(required_java_version, &custom_runtime_dir).await?;
 
             // 2. Rescan the newly downloaded directory to dynamically find the exact bin/java path
-            let new_javas = java::scan_local_java_environments(Some(&new_java_dir)).await;
+            let java_bin = if cfg!(target_os = "windows") {
+                "java.exe"
+            } else {
+                "java"
+            };
 
-            if let Some(j) = new_javas
-                .into_iter()
-                .find(|j| j.major_version == required_java_version)
-            {
-                found_path = Some(j.path);
+            use walkdir::WalkDir;
+
+            let mut found = None;
+
+            for entry in WalkDir::new(&new_java_dir) {
+                let entry = entry?;
+                if entry.file_type().is_file() {
+                    let name = entry.file_name().to_string_lossy().to_lowercase();
+
+                    if name == java_bin {
+                        found = Some(entry.path().to_path_buf());
+                        break;
+                    }
+                }
+            }
+
+            if let Some(java_path) = found {
+                tracing::info!(
+        "✅ Found downloaded Java {} at {}",
+        required_java_version,
+        java_path.display()
+        );
+                found_path = Some(java_path);
             } else {
                 return Err(format!(
-                    "Failed to locate Java executable after downloading version {}",
-                    required_java_version
-                )
-                .into());
+                    "Java downloaded but executable not found in {:?}",
+                    new_java_dir
+                ).into());
             }
         }
-        // ============================
+
+
 
         // Update the cache and save to the TOML file
         if let Some(verified_path) = found_path {
             launcher_config
                 .java_paths
                 .insert(required_java_version, verified_path.clone());
-            user_config.save().await?;
+            launcher_config.save().await?;
             final_java_executable = Some(verified_path);
         }
     }
@@ -301,7 +327,12 @@ async fn handle_auth(args: &AuthArgs) -> Result<(), AnyError> {
     if !args.logout.is_empty() {
         let name = &args.logout;
         let mut config = UserConfig::load().await;
-        let uuid = config.username.get(name).unwrap();
+        let uuid = match config.username.get(name) {
+            Some(u) => u,
+            None => {
+                return Err(format!("User {} not found", name).into());
+            }
+        };
         // TODO: Also need to remove user_profile.online and username from the config file
         auth::storage::delete_token(uuid).unwrap();
         config.username.remove(name);
