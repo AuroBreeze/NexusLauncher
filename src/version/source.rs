@@ -5,7 +5,9 @@ use super::models::{VersionDetail, VersionManifest};
 use super::utils;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use std::path::PathBuf;
+use std::sync::Arc;
 use tokio::fs;
+use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
 use tracing;
 
@@ -37,7 +39,6 @@ pub async fn download_libraries(detail: &VersionDetail) -> Result<Vec<PathBuf>, 
     tracing::info!("Start preparing the dependency library...");
 
     let mp = MultiProgress::new();
-
     let tasks: Vec<_> = detail
         .libraries
         .iter()
@@ -57,18 +58,49 @@ pub async fn download_libraries(detail: &VersionDetail) -> Result<Vec<PathBuf>, 
     let mut classpath_libs = Vec::new();
     let mut set = JoinSet::new();
 
+    // 1. Create a concurrency-limiting semaphore (to limit the number of concurrent download tasks to 10)
+    let semaphore = Arc::new(Semaphore::new(10));
+
     for (name, artifact) in tasks {
         let local_path = utils::get_library_path(&artifact.path);
         classpath_libs.push(local_path.clone());
 
         if !local_path.exists() {
-            let mp_clone = mp.clone();
+            let sem_clone = Arc::clone(&semaphore);
+
             set.spawn(async move {
-                tracing::info!("Concurrent download dependencies: {}", name);
+                // 2. Obtain permission; only tasks that have been granted permission can continue to be executed
+                let _permit = sem_clone.acquire_owned().await.unwrap();
 
-                let _ = mp_clone;
+                tracing::info!("Downloading dependency: {}", name);
 
-                download::download_and_verify(&artifact.url, &local_path, &artifact.sha1).await
+                // 3. Add simple retry logic
+                let mut attempts = 0;
+                let max_attempts = 3;
+                let mut last_error = None;
+
+                while attempts < max_attempts {
+                    match download::download_and_verify(&artifact.url, &local_path, &artifact.sha1)
+                        .await
+                    {
+                        Ok(_) => return Ok(()),
+                        Err(e) => {
+                            attempts += 1;
+                            tracing::warn!(
+                                "⏳ [{}] Download failed (Attempt {}/{}): {}",
+                                name,
+                                attempts,
+                                max_attempts,
+                                e
+                            );
+                            last_error = Some(e);
+                            if attempts < max_attempts {
+                                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                            }
+                        }
+                    }
+                }
+                Err(last_error.unwrap())
             });
         } else {
             main_pb.inc(1);
@@ -96,6 +128,7 @@ pub async fn download_assets(detail: &VersionDetail) -> Result<(), AnyError> {
 
     if !index_path.exists() {
         tracing::info!("Downloading resource index: {}.json", detail.asset_index.id);
+        // It is recommended to use retryable download here as well, but keep it simple for now
         download::download_and_verify(
             &detail.asset_index.url,
             &index_path,
@@ -119,35 +152,65 @@ pub async fn download_assets(detail: &VersionDetail) -> Result<(), AnyError> {
     let mut set = JoinSet::new();
     let objects_dir = mc_dir.join("assets").join("objects");
 
-    // Set the maximum concurrency (recommended between 16 and 32; too high may cause disconnection, too low will slow down downloading)
-    let max_concurrent = 32;
+    // Limit the concurrency number
+    let max_concurrent = 24;
 
-    for (_, object) in tasks {
+    for (path_name, object) in tasks {
         let base_url = "https://resources.download.minecraft.net";
-        let hash = object.hash;
+        let hash = object.hash.clone(); // Clone to move into the async block
         let prefix = &hash[0..2];
         let local_path = objects_dir.join(prefix).join(&hash);
         let download_url = format!("{}/{}/{}", base_url, prefix, hash);
 
         if !local_path.exists() {
-            // If the currently downloading tasks are full, wait for one to finish before adding a new one.
+            // Control concurrency: If the limit is reached, wait for one to finish
             while set.len() >= max_concurrent {
                 if let Some(res) = set.join_next().await {
-                    res??; // Check if the task that was just completed reported any errors
-                    main_pb.inc(1); // Update the progress bar
+                    res??;
+                    main_pb.inc(1);
                 }
             }
 
-            // Not full yet, or space has been freed up, continue launching!
+            let name_for_log = path_name.clone();
+            // Launch the task with retry logic
             set.spawn(async move {
-                download::download_and_verify(&download_url, &local_path, &hash).await
+                let mut attempts = 0;
+                let max_retries = 3; // Maximum number of retries
+
+                loop {
+                    match download::download_and_verify(&download_url, &local_path, &hash).await {
+                        Ok(_) => break Ok(()), // Download successful, break the loop
+                        Err(e) => {
+                            attempts += 1;
+                            if attempts > max_retries {
+                                tracing::error!(
+                                    "❌ Resource download failed completely [{}]: {}",
+                                    name_for_log,
+                                    e
+                                );
+                                break Err(e); // Exceeded retry limit, return error
+                            }
+
+                            // Exponential backoff wait: 1s, 2s, 4s
+                            let wait_time = 2u64.pow(attempts - 1);
+                            tracing::warn!(
+                                "⏳ Resource download retry ({}/{}) [{}]: {}",
+                                attempts,
+                                max_retries,
+                                name_for_log,
+                                e
+                            );
+                            tokio::time::sleep(tokio::time::Duration::from_secs(wait_time)).await;
+                        }
+                    }
+                }
             });
         } else {
             main_pb.inc(1);
         }
     }
 
-    // Handle the last remaining tasks that haven't been completed
+    // Handle the cleanup
     while let Some(res) = set.join_next().await {
         res??;
         main_pb.inc(1);
