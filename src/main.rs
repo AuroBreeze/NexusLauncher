@@ -171,84 +171,105 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
     }
 
     // TODO: When downloading the game files and other code, you should use function wrappers and reuse them in multiple places; they can be used in subsequent `install` commands as well as here.
-    if let Some(v_info) = manifest.versions.iter().find(|v| v.id == *target_version) {
-        tracing::info!("Parsing data of {}...", target_version);
-        let detail = version::source::fetch_version_detail(&v_info.url).await?;
+    let target_version = &args.game_version;
+    let version_dir = version::utils::get_clients_dir().join(target_version);
+    let local_json_path = version_dir.join(format!("{}.json", target_version));
 
-        let client_jar_path = version::utils::get_clients_dir()
-            .join(target_version)
-            .join(format!("{}.jar", target_version));
+    // Try to load the version detail locally first to support offline mode and speed up launch
+    let detail = if local_json_path.exists() {
+        tracing::info!(
+            "Using cached version metadata: {}",
+            local_json_path.display()
+        );
+        let content = tokio::fs::read_to_string(&local_json_path).await?;
+        serde_json::from_str::<version::models::VersionDetail>(&content)?
+    } else {
+        // If local metadata is missing, we must fetch the manifest to find the download URL
+        tracing::info!("Local metadata not found. Fetching manifest from Mojang...");
+        let manifest = version::source::obtain_manifest().await?;
 
-        if !client_jar_path.exists() {
-            tracing::info!("Downloading core files...");
-            version::download::download_and_verify(
-                &detail.downloads.client.url,
-                &client_jar_path,
-                detail.downloads.client.sha1.as_str(),
-            )
-            .await?;
-        }
-        let classpath_libs = version::source::download_libraries(&detail).await?;
+        let v_info = manifest
+            .versions
+            .iter()
+            .find(|v| v.id == *target_version)
+            .ok_or_else(|| format!("Version {} not found in manifest", target_version))?;
 
-        version::source::download_assets(&detail).await?;
-        tracing::info!("Core Path: {:?}", client_jar_path);
-        tracing::info!("\nAll core components of {} are ready!", target_version);
+        tracing::info!("Fetching version data for {}...", target_version);
+        let d = version::source::fetch_version_detail(&v_info.url).await?;
 
-        let access_token;
-        let (username, uuid);
-        if launcher_config.offline {
-            access_token = "offline_token".to_string();
-            username = {
-                let mut name = user_config.user_profile.offline.username.clone();
-                if name.is_empty() {
-                    name = "Default".to_string();
-                }
-                name
-            };
+        // Ensure the directory exists and save the JSON for future offline use
+        tokio::fs::create_dir_all(&version_dir).await?;
+        let json_content = serde_json::to_string_pretty(&d)?;
+        tokio::fs::write(&local_json_path, json_content).await?;
 
-            uuid = {
-                let mut id = user_config.user_profile.offline.uuid.clone();
-                if id.is_empty() {
-                    id = "offline".to_string();
-                }
-                id
-            };
+        d
+    };
 
-            tracing::info!("offline name: {}", username);
-            tracing::info!("offline uuid: {}", uuid);
+    // Verify and download the client JAR
+    let client_jar_path = version::utils::get_clients_dir()
+        .join(target_version)
+        .join(format!("{}.jar", target_version));
+
+    if !client_jar_path.exists() {
+        tracing::info!("Downloading core JAR file...");
+        version::download::download_and_verify(
+            &detail.downloads.client.url,
+            &client_jar_path,
+            detail.downloads.client.sha1.as_str(),
+        )
+        .await?;
+    }
+
+    // Process libraries and assets using the detail object (cached or newly fetched)
+    let classpath_libs = version::source::download_libraries(&detail).await?;
+    version::source::download_assets(&detail).await?;
+
+    tracing::info!("All core components for {} are ready!", target_version);
+
+    // Identity and Access Token Handling
+    let access_token;
+    let (username, uuid);
+
+    if launcher_config.offline {
+        access_token = "offline_token".to_string();
+        username = if user_config.user_profile.offline.username.is_empty() {
+            "Default".to_string()
         } else {
-            username = user_config.user_profile.online.username.clone();
-            uuid = user_config.user_profile.online.uuid.clone();
-            access_token = silent_login(&uuid).await?;
-        }
-
-        let launch_context = LaunchContext {
-            version_id: args.game_version.clone(),
-            offline: launcher_config.offline,
-            java_path: final_java_executable,
-            core_jar: client_jar_path,
-            user: UserContext {
-                username,
-                uuid,
-                access_token: Some(access_token),
-            },
-            max_memory: Some(args.max_memory),
-
-            main_class: detail.main_class.clone(),
-            libraries: classpath_libs,
-            asset_index_id: detail.asset_index.id.clone(),
+            user_config.user_profile.offline.username.clone()
         };
 
-        tracing::info!("Target Version: {}", launch_context.version_id);
-        tracing::info!("Player Name: {}", launch_context.user.username);
-        tracing::info!("Player UUID: {}", launch_context.user.uuid);
-        tracing::info!(
-            "Allocated Memory: {} MB",
-            launch_context.max_memory.unwrap()
-        );
+        uuid = if user_config.user_profile.offline.uuid.is_empty() {
+            "offline".to_string()
+        } else {
+            user_config.user_profile.offline.uuid.clone()
+        };
 
-        start_game(launch_context)?;
+        tracing::info!("Mode: Offline (User: {}, UUID: {})", username, uuid);
+    } else {
+        username = user_config.user_profile.online.username.clone();
+        uuid = user_config.user_profile.online.uuid.clone();
+        access_token = silent_login(&uuid).await?;
+        tracing::info!("Mode: Online (User: {})", username);
     }
+
+    // Construct the launch context and start the process
+    let launch_context = LaunchContext {
+        version_id: args.game_version.clone(),
+        offline: launcher_config.offline,
+        java_path: final_java_executable,
+        core_jar: client_jar_path,
+        user: UserContext {
+            username,
+            uuid,
+            access_token: Some(access_token),
+        },
+        max_memory: Some(args.max_memory),
+        main_class: detail.main_class.clone(),
+        libraries: classpath_libs,
+        asset_index_id: detail.asset_index.id.clone(),
+    };
+
+    start_game(launch_context)?;
 
     Ok(())
 }

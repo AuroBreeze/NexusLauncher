@@ -35,6 +35,7 @@ pub async fn fetch_version_detail(url: &str) -> Result<VersionDetail, AnyError> 
     Ok(detail)
 }
 
+// PERF: Download and Reuse Code
 pub async fn download_libraries(detail: &VersionDetail) -> Result<Vec<PathBuf>, AnyError> {
     tracing::info!("Start preparing the dependency library...");
 
@@ -87,13 +88,6 @@ pub async fn download_libraries(detail: &VersionDetail) -> Result<Vec<PathBuf>, 
                         Ok(_) => return Ok(()),
                         Err(e) => {
                             attempts += 1;
-                            // tracing::warn!(
-                            //     "⏳ [{}] Download failed (Attempt {}/{}): {}",
-                            //     name,
-                            //     attempts,
-                            //     max_attempts,
-                            //     e
-                            // );
                             pb.set_message(format!(
                                 "⏳ [{}] Download failed (Attempt {}/{}): {}",
                                 name, attempts, max_attempts, e
@@ -207,13 +201,6 @@ pub async fn download_assets(detail: &VersionDetail) -> Result<(), AnyError> {
 
                             // Exponential backoff wait: 1s, 2s, 4s
                             let wait_time = 2u64.pow(attempts - 1);
-                            // tracing::warn!(
-                            //     "⏳ Resource download retry ({}/{}) [{}]: {}",
-                            //     attempts,
-                            //     max_retries,
-                            //     name_for_log,
-                            //     e
-                            // );
                             pb.set_message(format!(
                                 "⏳ Resource download retry ({}/{}) [{}]: {}",
                                 attempts, max_retries, name_for_log, e
