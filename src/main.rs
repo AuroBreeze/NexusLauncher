@@ -4,7 +4,7 @@ mod config;
 mod java;
 mod launch;
 mod loader;
-mod mode;
+mod mods;
 mod version;
 
 use clap::Parser;
@@ -12,16 +12,17 @@ use std::path::PathBuf;
 use version::AnyError;
 
 use crate::config::config::Config;
+use crate::config::handle_set;
 use crate::config::models::LaunchConfig;
 use crate::launch::models::{LaunchContext, UserContext};
+use crate::mods::handle_mods;
 use crate::{
     auth::utils::silent_login,
-    cli::{AuthArgs, JavaArgs, LaunchArgs, LoaderArgs, ModeArgs, SetArgs},
+    cli::{AuthArgs, JavaArgs, LaunchArgs, LoaderArgs},
     config::models::UserConfig,
     java::download_java,
     launch::launcher::start_game,
     loader::fabric::{get_fabric_profile, get_latest_loader, install_fabric_libraries},
-    mode::models::search_mods,
 };
 
 #[tokio::main]
@@ -38,10 +39,11 @@ async fn main() -> Result<(), AnyError> {
         .init();
 
     match cli.command {
+        // TODO: Move each handle function to the mod file in the corresponding folder
         Some(cli::Commands::Launch(args)) => handle_launch(&args).await?,
         Some(cli::Commands::Java(args)) => handle_java(&args).await?,
         Some(cli::Commands::Auth(args)) => handle_auth(&args).await?,
-        Some(cli::Commands::Mode(args)) => handle_mode(&args).await?,
+        Some(cli::Commands::Mode(args)) => handle_mods(&args).await?,
         Some(cli::Commands::Loader(args)) => handle_loader(&args).await?,
         Some(cli::Commands::Set(args)) => handle_set(&args).await?,
 
@@ -67,7 +69,9 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
 
     #[allow(unused_assignments)]
     let mut final_java_executable: Option<PathBuf> = None;
+
     // Check if we already have a valid cached path for this version
+    // PERF: The code for locating, saving, and downloading Java files, as well as the code for launching the game, should remain concise. Move the code to `java.rs` and reuse it.
     if let Some(cached_path) = launcher_config.get_valid_java(required_java_version).await
         && !args.force_scan
     {
@@ -166,6 +170,7 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
         }
     }
 
+    // TODO: When downloading the game files and other code, you should use function wrappers and reuse them in multiple places; they can be used in subsequent `install` commands as well as here.
     if let Some(v_info) = manifest.versions.iter().find(|v| v.id == *target_version) {
         tracing::info!("Parsing data of {}...", target_version);
         let detail = version::source::fetch_version_detail(&v_info.url).await?;
@@ -349,7 +354,7 @@ async fn handle_auth(args: &AuthArgs) -> Result<(), AnyError> {
                 return Err(format!("User {} not found", name).into());
             }
         };
-        // TODO: Also need to remove user_profile.online and username from the config file
+
         auth::storage::delete_token(uuid).unwrap();
         config.username.remove(name);
         config.user_profile.online.username = "".to_string();
@@ -364,13 +369,7 @@ async fn handle_auth(args: &AuthArgs) -> Result<(), AnyError> {
 }
 
 // TODO: will be implemented
-async fn handle_mode(args: &ModeArgs) -> Result<(), AnyError> {
-    if args.download {
-        search_mods(&args.query).await?;
-    }
-    Ok(())
-}
-
+// The configuration file needs to be updated; most importantly, the persistence settings for the main function need to be saved.
 async fn handle_loader(args: &LoaderArgs) -> Result<(), AnyError> {
     let loader_verison = get_latest_loader(&args.game_version).await;
     match loader_verison {
@@ -387,30 +386,5 @@ async fn handle_loader(args: &LoaderArgs) -> Result<(), AnyError> {
             tracing::error!("Failed to fetch Fabric Loader: {}", e);
         }
     }
-    Ok(())
-}
-
-async fn handle_set(args: &SetArgs) -> Result<(), AnyError> {
-    let mut config = UserConfig::load().await;
-    let mut launch_config = LaunchConfig::load().await;
-
-    if let Some(username) = args.name.as_ref() {
-        config.user_profile.offline.username = username.clone();
-    }
-
-    if let Some(uuid) = args.uuid.as_ref() {
-        config.user_profile.offline.uuid = uuid.clone();
-    }
-
-    if let Some(judge) = args.offline {
-        launch_config.offline = judge;
-    }
-
-    if args.show {
-        tracing::info!("Offline profile: {:#?}", config.user_profile.offline);
-    }
-
-    config.save().await?;
-    launch_config.save().await?;
     Ok(())
 }
