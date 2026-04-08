@@ -62,7 +62,7 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
     let required_java_version = 17;
 
     // Load the launcher and user config
-    let mut user_config = UserConfig::load().await;
+    let user_config = UserConfig::load().await;
     let mut launcher_config = LaunchConfig::load().await;
 
     #[allow(unused_assignments)]
@@ -190,18 +190,24 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
         tracing::info!("\nAll core components of {} are ready!", target_version);
 
         let access_token;
-        let mut username;
-        let mut uuid;
+        let (username, uuid);
         if launcher_config.offline {
             access_token = "offline_token".to_string();
-            username = user_config.user_profile.offline.username.clone();
-            uuid = user_config.user_profile.offline.uuid.clone();
-            if username.is_empty() {
-                username = "Default".to_string();
-            }
-            if uuid.is_empty() {
-                uuid = "offline".to_string();
-            }
+            username = {
+                let mut name = user_config.user_profile.offline.username.clone();
+                if name.is_empty() {
+                    name = "Default".to_string();
+                }
+                name
+            };
+
+            uuid = {
+                let mut id = user_config.user_profile.offline.uuid.clone();
+                if id.is_empty() {
+                    id = "offline".to_string();
+                }
+                id
+            };
 
             tracing::info!("offline name: {}", username);
             tracing::info!("offline uuid: {}", uuid);
@@ -211,14 +217,14 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
             access_token = silent_login(&uuid).await?;
         }
 
-        let mut launch_context = LaunchContext {
+        let launch_context = LaunchContext {
             version_id: args.game_version.clone(),
             offline: launcher_config.offline,
             java_path: final_java_executable,
             core_jar: client_jar_path,
             user: UserContext {
-                username: username,
-                uuid: uuid,
+                username,
+                uuid,
                 access_token: Some(access_token),
             },
             max_memory: Some(args.max_memory),
@@ -371,7 +377,7 @@ async fn handle_loader(args: &LoaderArgs) -> Result<(), AnyError> {
         Ok(v) => {
             tracing::info!("Latest Fabric Loader: {}", v);
             let profile = get_fabric_profile(&args.game_version, &v).await?;
-            let mut extra_classpath: Vec<PathBuf> = install_fabric_libraries(&profile).await?;
+            let extra_classpath: Vec<PathBuf> = install_fabric_libraries(&profile).await?;
 
             let main_class = profile.main_class;
             tracing::info!("Main Class: {}", main_class);
