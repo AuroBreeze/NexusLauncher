@@ -1,67 +1,54 @@
 # Nexus Launcher
 
-```text
-[INFO] Nexus Launcher Starting...
-[INFO] Workspace initialized
-[INFO] Target Version: 1.20.1
-[INFO] Player Name: AuroBreeze
-[INFO] No valid cached Java 17 found. Starting scan...
-[INFO] Found matching Java 17: /usr/lib/jvm/java-17-openjdk/bin/java
-[INFO] All core components of 1.20.1 are ready!
-[INFO] 🚀 Game launched successfully! Process PID: 4092
-```
+A command-line Minecraft launcher written in Rust.
 
-A command-line Minecraft launcher written in **Rust**.
+## Overview
 
 Nexus Launcher is designed to be lightweight and operates entirely from the terminal, avoiding the resource overhead of a graphical user interface. It handles asynchronous game asset downloads and automatically sets up the required Java environment to launch the game.
 
 NexusLauncher is an `unofficial` open-source launcher and is not affiliated with Mojang or Microsoft.
 
----
+## Features
 
-## ✨ Core Features
+- **Asynchronous downloads**: Concurrent asset and library downloads with connection limits
+- **Java management**: Automatic detection and download of required Java versions
+- **Authentication**: Microsoft account login with token persistence
+- **Version isolation**: Separate directories for each game version
+- **Mod loader support**: Fabric and Quilt installation
+- **Offline mode**: Play without authentication
 
-* **Concurrent Downloading:** Uses `tokio` and `reqwest` to download game assets and libraries asynchronously, with connection limits to avoid server blocks.
-* **Java Management:** Automatically detects the required Java version for the game. If it is not found locally, the launcher downloads and extracts the appropriate JRE via the Adoptium API.
-* **Configuration Saving:** Stores validated Java paths and launcher settings in a `nexus_config.toml` file to reduce scanning time on subsequent startups.
-* **Version Isolation:** Keeps game versions separated. Version-specific files like `saves` and `mods` are stored in their own directories, while common `assets` and `libraries` are shared globally.
+## Installation
 
-## 📂 Workspace Layout
-
-Nexus constructs a clean, logically separated environment upon first boot:
-
-```text
-~/.minecraft/
-├── nexus_config.toml  -> Persistent launcher state & cache
-├── assets/            -> Globally shared game assets
-├── libraries/         -> Globally shared dependency jars
-├── runtimes/          -> Auto-managed Java JREs
-└── versions/
-    └── 1.20.1/        -> Isolated sandbox (saves, mods, options)
-```
-
-## 🚀 Quick Start
-
-Ensure you have `rustc` and `cargo` installed on your system.
-
-**Launch with default configuration:**
 ```bash
-cargo run
+git clone https://github.com/AuroBreeze/NexusLauncher.git
+cd NexusLauncher
+cargo build --release
 ```
 
-**Launch with custom arguments:**
+## Usage
+
+### Launch a game
 ```bash
-cargo run -- --username AuroBreeze --game-version 1.8.9 --memory 4096
+cargo run -- launch 1.20.1
 ```
 
-**Force an environment re-evaluation (bypasses TOML cache):**
-```bash
-cargo run -- --force-java-scan
-```
+## Commands
 
-## 📜 Philosophy
+- `launch <version>` - Launch Minecraft (options: `--player-name`, `--max-memory`, `--offline`, `--force-scan`)
+- `auth --login` - Authenticate with Microsoft
+- `auth --logout <username>` - Remove authentication
+- `java --scan` - Scan for Java installations
+- `java --download --version <N>` - Download Java runtime
+- `loader <version> --loader <fabric|quilt>` - Install mod loader
+- `set --name <name>` - Set offline username
+- `set --show` - Display current settings
 
-* **Zero GUI Overhead:** Maximize system memory and CPU for the game itself, not the launcher.
-* **Transparent Execution:** What you see in the terminal log is exactly what is happening under the hood.
-* **Idempotent Operations:** Running the launcher multiple times safely verifies existing files without redundant downloads.
+## Requirements
 
+- Rust 1.70+ and Cargo
+- Internet connection for downloads
+- System credential manager for token storage
+
+## License
+
+GPL-3.0
