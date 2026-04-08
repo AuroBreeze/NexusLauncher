@@ -11,18 +11,19 @@ use clap::Parser;
 use std::path::PathBuf;
 use version::AnyError;
 
+use crate::auth::handle_auth;
 use crate::config::config::Config;
 use crate::config::handle_set;
 use crate::config::models::LaunchConfig;
 use crate::launch::models::{LaunchContext, UserContext};
+use crate::loader::handle_loader;
 use crate::mods::handle_mods;
 use crate::{
     auth::utils::silent_login,
-    cli::{AuthArgs, JavaArgs, LaunchArgs, LoaderArgs},
+    cli::{JavaArgs, LaunchArgs},
     config::models::UserConfig,
     java::download_java,
     launch::launcher::start_game,
-    loader::fabric::{get_fabric_profile, get_latest_loader, install_fabric_libraries},
 };
 
 #[tokio::main]
@@ -59,8 +60,6 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
     tracing::info!("Nexus Launcher Starting...");
     // Print out the configuration we are using
 
-    let manifest = version::source::obtain_manifest().await?;
-    let target_version = &args.game_version;
     let required_java_version = 17;
 
     // Load the launcher and user config
@@ -302,110 +301,5 @@ async fn handle_java(args: &JavaArgs) -> Result<(), AnyError> {
         config.save().await?;
     }
 
-    Ok(())
-}
-
-async fn handle_auth(args: &AuthArgs) -> Result<(), AnyError> {
-    if args.login {
-        //  Retrieve the device code and display it
-        let device_resp = auth::utils::get_device_code().await?;
-        tracing::info!(
-            "Please open in your browser: {}",
-            device_resp.verification_uri
-        );
-        tracing::info!("Enter the code: {}", device_resp.user_code);
-
-        // Poll Microsoft Token
-        let ms_token =
-            auth::utils::poll_for_ms_token(&device_resp.device_code, device_resp.interval).await?;
-        tracing::info!("✅ Microsoft authentication successful");
-
-        // 3. Obtain Xbox Token
-        let (xbox_token, uhs) = auth::utils::get_xbox_token(&ms_token.access_token).await?;
-
-        // 4. Obtain XSTS Token
-        let xsts_token = auth::utils::get_xsts_token(&xbox_token).await?;
-
-        // 5. obtain Minecraft token
-        let mc_token = auth::utils::get_minecraft_token(&xsts_token, &uhs).await?;
-        tracing::info!("✅ Minecraft token successfully obtained!");
-        // 6. check game ownership
-        tracing::info!("Verifying game ownership...");
-        let is_owner = auth::utils::check_ownership(&mc_token).await?;
-
-        if !is_owner {
-            tracing::error!(
-                "❌ Verification failed: This account has not purchased Minecraft for Java Edition!"
-            );
-            return Err("Account does not own the game".into());
-        }
-        tracing::info!("✅ Permission verified: You own the game");
-
-        // 7. Get player profile (UUID and nickname)
-        let profile = auth::utils::get_minecraft_profile(&mc_token).await?;
-        tracing::info!("🚀 Login successful! Welcome back, {}!", profile.name);
-        tracing::info!("Player UUID: {}", profile.id);
-
-        if let Some(refresh_token) = ms_token.refresh_token {
-            // Use the player's UUID or nickname as the key
-            auth::storage::save_refresh_token(&profile.id, &refresh_token)?;
-            tracing::info!(
-                "✅ The security credentials have been encrypted and stored in the system credential manager."
-            );
-        }
-
-        let mut config = UserConfig::load().await;
-        config.user_profile.online.username = profile.name.clone();
-        config.user_profile.online.uuid = profile.id.clone();
-
-        config
-            .username
-            .insert(profile.name.clone(), profile.id.clone());
-
-        config.save().await?;
-        tracing::info!("✅ Username has been saved in the launcher config.");
-    }
-
-    if !args.logout.is_empty() {
-        let name = &args.logout;
-        let mut config = UserConfig::load().await;
-        let uuid = match config.username.get(name) {
-            Some(u) => u,
-            None => {
-                return Err(format!("User {} not found", name).into());
-            }
-        };
-
-        auth::storage::delete_token(uuid).unwrap();
-        config.username.remove(name);
-        config.user_profile.online.username = "".to_string();
-        config.user_profile.online.uuid = "".to_string();
-        config.save().await.unwrap();
-        tracing::info!(
-            "✅ Security credentials have been deleted from the system credential manager."
-        );
-    }
-
-    Ok(())
-}
-
-// TODO: will be implemented
-// The configuration file needs to be updated; most importantly, the persistence settings for the main function need to be saved.
-async fn handle_loader(args: &LoaderArgs) -> Result<(), AnyError> {
-    let loader_verison = get_latest_loader(&args.game_version).await;
-    match loader_verison {
-        Ok(v) => {
-            tracing::info!("Latest Fabric Loader: {}", v);
-            let profile = get_fabric_profile(&args.game_version, &v).await?;
-            let extra_classpath: Vec<PathBuf> = install_fabric_libraries(&profile).await?;
-
-            let main_class = profile.main_class;
-            tracing::info!("Main Class: {}", main_class);
-            tracing::info!("Libraries: {:#?}", extra_classpath);
-        }
-        Err(e) => {
-            tracing::error!("Failed to fetch Fabric Loader: {}", e);
-        }
-    }
     Ok(())
 }
