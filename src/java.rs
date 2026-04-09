@@ -274,7 +274,6 @@ pub async fn download_java(major_version: u32, runtimes_dir: &Path) -> Result<Pa
             archive.unpack(&target_dir_clone)?;
         }
 
-        // ✅ 原有清理逻辑保留
         std::fs::remove_file(&temp_archive_path)?;
         Ok(())
     })

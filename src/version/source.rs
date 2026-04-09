@@ -55,7 +55,7 @@ pub async fn execute_downloads(
             let _permit = sem_clone.acquire_owned().await.unwrap();
 
             let mut attempts = 0;
-            let max_retries = 3;
+            let max_retries = 5;
 
             // 3. try to download
             loop {

@@ -1,6 +1,6 @@
 use super::AnyError;
 use futures_util::StreamExt;
-use indicatif::{ProgressBar, ProgressStyle};
+use indicatif::ProgressBar;
 use sha1::{Digest, Sha1};
 use std::path::PathBuf;
 use tokio::fs;
@@ -27,25 +27,8 @@ pub async fn download_and_verify(
     }
 
     let response = reqwest::get(url).await?;
-    let total_size = response.content_length().unwrap_or(0);
 
-    let file_name = save_path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("file");
-
-    let pb = if false {
-        let p = ProgressBar::new(total_size);
-        if let Ok(style) = ProgressStyle::with_template(
-            "{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})",
-        ) {
-            p.set_style(style.progress_chars("#>-"));
-        }
-        p.set_message(format!("Downloading {}", file_name));
-        p
-    } else {
-        ProgressBar::hidden() // Silent mode: Does not display, but can still receive inc() updates without errors
-    };
+    let pb = ProgressBar::hidden(); // Silent mode: Does not display, but can still receive inc() updates without errors
 
     let mut file = fs::File::create(save_path).await?;
     let mut hasher = Sha1::new();
