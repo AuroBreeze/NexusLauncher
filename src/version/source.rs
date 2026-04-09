@@ -49,10 +49,11 @@ pub async fn execute_downloads(
 
         // 2. dispatch async tasks
         set.spawn(async move {
-            pb.set_message(format!("📥 {}", task.name));
-
-            // get the permit
+            // Acquire the permit FIRST before doing any work or updating UI
             let _permit = sem_clone.acquire_owned().await.unwrap();
+
+            // NOW update the message, so it reflects the file currently being downloaded
+            pb.set_message(format!("📥 {}", task.name));
 
             let mut attempts = 0;
             let max_retries = 5;
@@ -69,6 +70,7 @@ pub async fn execute_downloads(
                         }
 
                         let wait_time = 2u64.pow(attempts as u32 - 1);
+                        // Update message to show retry status for the current active task
                         pb.set_message(format!(
                             "⏳ Retry ({}/{}) [{}]: {}",
                             attempts, max_retries, task.name, e

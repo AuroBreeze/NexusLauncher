@@ -1,7 +1,7 @@
-use std::path::PathBuf;
-
 use super::models::{FabricLoaderResponse, FabricProfile};
-use crate::version::AnyError;
+use crate::version::{AnyError, utils::get_minecraft_dir};
+use std::path::PathBuf;
+use tokio::fs;
 
 /// fetch latest stable Fabric Loader
 pub async fn get_latest_loader(game_version: &str) -> Result<String, AnyError> {
@@ -32,14 +32,30 @@ pub async fn get_fabric_profile(
         game_version,
         loader_version
     );
+
     let url = format!(
         "https://meta.fabricmc.net/v2/versions/loader/{}/{}/profile/json",
         game_version, loader_version
     );
-    let profile: FabricProfile = reqwest::get(url).await?.json().await?;
 
-    // tracing::info!("Fabric Profile: {:#?}", profile);
-    tracing::info!("Fabric profile obtained");
+    let name = format!("fabric_profile_{}_{}.json", game_version, loader_version);
+    let save_path = get_minecraft_dir().join("loader").join(name);
+    // 1. Get the raw response text instead of directly deserializing
+    let response_text = reqwest::get(url).await?.text().await?;
+
+    // 2. Ensure the parent directory exists before writing
+    if let Some(parent) = save_path.parent() {
+        fs::create_dir_all(parent).await?;
+    }
+
+    // 3. Write the raw JSON text to the local file
+    fs::write(&save_path, &response_text).await?;
+    tracing::debug!("Fabric profile saved locally to {}", &save_path.display());
+
+    // 4. Parse the JSON text into the FabricProfile struct
+    let profile: FabricProfile = serde_json::from_str(&response_text)?;
+
+    tracing::info!("Fabric profile obtained and saved");
     Ok(profile)
 }
 

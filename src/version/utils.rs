@@ -33,7 +33,6 @@ pub fn init_workspace() -> std::io::Result<()> {
         base.clone(),
         client.clone(),
         server.clone(),
-        base.join("versions"),
         base.join("libraries"),
         base.join("assets"),
         base.join("assets/indexes"),
