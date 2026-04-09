@@ -9,7 +9,6 @@ pub struct Cli {
     #[command(subcommand)]
     pub command: Option<Commands>, //  Option
 
-
     #[arg(short, long, global = true)]
     pub debug: bool,
 }
@@ -136,7 +135,7 @@ pub struct AuthArgs {
 
     /// clear auth
     #[arg(long)]
-    pub logout: String,
+    pub logout: Option<String>,
 }
 
 #[derive(Args)]

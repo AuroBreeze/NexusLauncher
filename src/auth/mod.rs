@@ -77,8 +77,7 @@ pub async fn handle_auth(args: &AuthArgs) -> Result<(), AnyError> {
         tracing::info!("✅ Username has been saved in the launcher config.");
     }
 
-    if !args.logout.is_empty() {
-        let name = &args.logout;
+    if let Some(name) = &args.logout {
         let mut config = UserConfig::load().await;
         let uuid = match config.username.get(name) {
             Some(u) => u,
