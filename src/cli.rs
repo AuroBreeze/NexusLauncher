@@ -25,7 +25,7 @@ pub enum Commands {
     Java(JavaArgs),
 
     /// download and install mode
-    Mode(ModeArgs),
+    Mod(ModArgs),
 
     /// download and install loader
     Loader(LoaderArgs),
@@ -93,7 +93,7 @@ pub struct LoaderArgs {
 }
 
 #[derive(Args)]
-pub struct ModeArgs {
+pub struct ModArgs {
     // Query
     #[arg(short, long)]
     pub query: String,

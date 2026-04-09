@@ -44,7 +44,7 @@ async fn main() -> Result<(), AnyError> {
         Some(cli::Commands::Launch(args)) => handle_launch(&args).await?,
         Some(cli::Commands::Java(args)) => handle_java(&args).await?,
         Some(cli::Commands::Auth(args)) => handle_auth(&args).await?,
-        Some(cli::Commands::Mode(args)) => handle_mods(&args).await?,
+        Some(cli::Commands::Mod(args)) => handle_mods(&args).await?,
         Some(cli::Commands::Loader(args)) => handle_loader(&args).await?,
         Some(cli::Commands::Set(args)) => handle_set(&args).await?,
 
