@@ -12,14 +12,14 @@ pub struct FabricLoader {
     pub stable: bool,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct FabricProfile {
     #[serde(rename = "mainClass")]
     pub main_class: String,
     pub libraries: Vec<FabricLibrary>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct FabricLibrary {
     pub name: String,
     pub url: String,

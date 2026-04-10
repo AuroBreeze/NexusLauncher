@@ -17,8 +17,11 @@ use crate::config::config::Config;
 use crate::config::handle_set;
 use crate::config::models::LaunchConfig;
 use crate::launch::models::{LaunchContext, UserContext};
+use crate::loader::fabric::find_fabric_json;
 use crate::loader::handle_loader;
+use crate::loader::models::FabricProfile;
 use crate::mods::handle_mods;
+use crate::version::utils::get_clients_dir;
 use crate::{
     auth::utils::silent_login,
     cli::{JavaArgs, LaunchArgs},
@@ -258,6 +261,12 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
         tracing::info!("Mode: Online (User: {})", username);
     }
 
+    let fabric_profile_path =
+        find_fabric_json(&get_clients_dir().join(&args.game_version)).unwrap();
+    let data = std::fs::read_to_string(fabric_profile_path.unwrap().as_path()).unwrap();
+    let fabric_profile: FabricProfile = serde_json::from_str(&data).unwrap();
+    // dbg!(&fabric_profile);
+
     // Construct the launch context and start the process
     let launch_context = LaunchContext {
         version_id: args.game_version.clone(),
@@ -273,6 +282,7 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
         main_class: detail.main_class.clone(),
         libraries: classpath_libs,
         asset_index_id: detail.asset_index.id.clone(),
+        fabric_loader: Some(fabric_profile),
     };
 
     start_game(launch_context)?;

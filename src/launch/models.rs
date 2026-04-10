@@ -1,6 +1,8 @@
 // src/launch/models.rs
 use std::path::PathBuf;
 
+use crate::loader::models::FabricProfile;
+
 #[derive(Debug, Clone, Default)]
 pub struct LaunchContext {
     pub version_id: String,         // such as "1.20.1-fabric"
@@ -14,6 +16,7 @@ pub struct LaunchContext {
     pub main_class: String,
     pub libraries: Vec<PathBuf>,
     pub asset_index_id: String,
+    pub fabric_loader: Option<FabricProfile>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -35,6 +38,7 @@ impl LaunchContext {
             main_class: String::new(),
             libraries: Vec::new(),
             asset_index_id: String::new(),
+            fabric_loader: None,
         }
     }
 }

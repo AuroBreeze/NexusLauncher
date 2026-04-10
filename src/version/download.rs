@@ -59,9 +59,14 @@ pub async fn download_and_verify(
 pub async fn pool_download_and_link(
     url: &str,
     lib_relative_path: &str,
+    game_name: &str,
 ) -> Result<PathBuf, AnyError> {
-    let libs_base = super::utils::get_minecraft_dir().join("libraries");
-    let objects_base = super::utils::get_minecraft_dir().join("objects");
+    let libs_base = super::utils::get_clients_dir()
+        .join(game_name)
+        .join("libraries");
+    let objects_base = super::utils::get_clients_dir()
+        .join(game_name)
+        .join("objects");
 
     let target_path = libs_base.join(lib_relative_path);
 
