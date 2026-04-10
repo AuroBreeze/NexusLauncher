@@ -7,7 +7,7 @@ use std::str::FromStr;
 #[command(about = "A high-performance Minecraft launcher written in Rust", long_about = None)]
 pub struct Cli {
     #[command(subcommand)]
-    pub command: Option<Commands>, //  Option
+    pub command: Option<Commands>, // Option
 
     #[arg(short, long, global = true)]
     pub debug: bool,
@@ -21,37 +21,68 @@ pub enum Commands {
     /// Authenticate
     Auth(AuthArgs),
 
-    /// check, download and install java
+    /// Check, download and install java
     Java(JavaArgs),
 
-    /// download and install mode
-    Mod(ModArgs),
+    /// Install various components like loaders or mods
+    Install(InstallArgs),
 
-    /// download and install loader
-    Loader(LoaderArgs),
-
-    /// set and get options
+    /// Set and get options
     Set(SetArgs),
 }
 
+// ==========================================
+// Install Subcommands group
+// ==========================================
+
 #[derive(Args)]
-pub struct SetArgs {
-    /// Set a game name that becomes invalid when logging in with a genuine copy
-    #[arg(short, long)]
-    pub name: Option<String>,
-
-    /// Set a game UUID that becomes invalid when logging in with a genuine copy
-    #[arg(short, long)]
-    pub uuid: Option<String>,
-
-    /// Display settings
-    #[arg(short, long, action = clap::ArgAction::SetTrue)]
-    pub show: bool,
-
-    /// Enable offline login
-    #[arg(short, long, default_value = None)]
-    pub offline: Option<bool>,
+pub struct InstallArgs {
+    #[command(subcommand)]
+    pub command: InstallCommands,
 }
+
+#[derive(Subcommand)]
+pub enum InstallCommands {
+    /// Download and install a loader (e.g., Fabric, Quilt)
+    Loader(LoaderArgs),
+
+    /// Download and install a mod
+    Mod(ModArgs),
+}
+
+// ==========================================
+// Component Arguments
+// ==========================================
+
+#[derive(Args, Debug)]
+pub struct LoaderArgs {
+    // Game Version Name
+    pub game_name: String,
+
+    // The game version to install the loader for
+    // pub game_version: String,
+    #[arg(short, long)]
+    pub loader: Loaders,
+}
+
+#[derive(Args)]
+pub struct ModArgs {
+    /// Query string to search for the mod
+    #[arg(short, long)]
+    pub query: String,
+
+    /// Target game version for the mod
+    #[arg(short, long)]
+    pub game_version: String,
+
+    /// Flag to trigger the download process
+    #[arg(long, action = clap::ArgAction::SetTrue)]
+    pub download: bool,
+}
+
+// ==========================================
+// Enums & Other Arguments
+// ==========================================
 
 #[derive(Debug, Clone, ValueEnum)]
 pub enum Loaders {
@@ -83,27 +114,23 @@ impl Display for Loaders {
     }
 }
 
-#[derive(Args, Debug)]
-pub struct LoaderArgs {
-    /// The game version to install the loader for
-    pub game_version: String,
-
-    #[arg(short, long)]
-    pub loader: Loaders,
-}
-
 #[derive(Args)]
-pub struct ModArgs {
-    // Query
+pub struct SetArgs {
+    /// Set a game name that becomes invalid when logging in with a genuine copy
     #[arg(short, long)]
-    pub query: String,
+    pub name: Option<String>,
 
+    /// Set a game UUID that becomes invalid when logging in with a genuine copy
     #[arg(short, long)]
-    pub game_version: String,
+    pub uuid: Option<String>,
 
-    /// Download
-    #[arg(long, action = clap::ArgAction::SetTrue)]
-    pub download: bool,
+    /// Display settings
+    #[arg(short, long, action = clap::ArgAction::SetTrue)]
+    pub show: bool,
+
+    /// Enable offline login
+    #[arg(short, long, default_value = None)]
+    pub offline: Option<bool>,
 }
 
 #[derive(Args)]
@@ -115,6 +142,7 @@ pub struct LaunchArgs {
     #[arg(short, long, default_value = "Default")]
     pub player_name: String,
 
+    /// Maximum memory allocation (in MB)
     #[arg(short, long, default_value = "2048")]
     pub max_memory: u32,
 
@@ -133,7 +161,7 @@ pub struct AuthArgs {
     #[arg(long, conflicts_with = "logout")]
     pub login: bool,
 
-    /// clear auth
+    /// Clear auth data
     #[arg(long)]
     pub logout: Option<String>,
 }
@@ -144,11 +172,11 @@ pub struct JavaArgs {
     #[arg(short, long, default_value = "17")]
     pub version: u32,
 
-    /// Scan for Java
+    /// Scan for installed Java versions
     #[arg(long)]
     pub scan: bool,
 
-    /// Force the download of a specific version of the runtime (e.g., 17)
+    /// Force the download of a specific version of the runtime
     #[arg(long, action = clap::ArgAction::SetTrue)]
     pub download: bool,
 }

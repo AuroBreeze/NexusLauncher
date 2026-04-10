@@ -12,6 +12,7 @@ use std::path::PathBuf;
 use version::AnyError;
 
 use crate::auth::handle_auth;
+use crate::cli::{Commands, InstallCommands};
 use crate::config::config::Config;
 use crate::config::handle_set;
 use crate::config::models::LaunchConfig;
@@ -40,14 +41,20 @@ async fn main() -> Result<(), AnyError> {
         .init();
 
     match cli.command {
-        // TODO: Move each handle function to the mod file in the corresponding folder
-        Some(cli::Commands::Launch(args)) => handle_launch(&args).await?,
-        Some(cli::Commands::Java(args)) => handle_java(&args).await?,
-        Some(cli::Commands::Auth(args)) => handle_auth(&args).await?,
-        Some(cli::Commands::Mod(args)) => handle_mods(&args).await?,
-        Some(cli::Commands::Loader(args)) => handle_loader(&args).await?,
-        Some(cli::Commands::Set(args)) => handle_set(&args).await?,
+        // Handling top-level commands
+        Some(Commands::Launch(args)) => handle_launch(&args).await?,
+        Some(Commands::Java(args)) => handle_java(&args).await?,
+        Some(Commands::Auth(args)) => handle_auth(&args).await?,
 
+        // Handling nested Install command
+        Some(Commands::Install(install_args)) => match install_args.command {
+            InstallCommands::Mod(mod_args) => handle_mods(&mod_args).await?,
+            InstallCommands::Loader(loader_args) => handle_loader(&loader_args).await?,
+        },
+
+        Some(Commands::Set(args)) => handle_set(&args).await?,
+
+        // Handling the case where no command is provided
         None => {
             println!("Please specify a command. Use --help");
         }
@@ -172,7 +179,7 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
     // TODO: When downloading the game files and other code, you should use function wrappers and reuse them in multiple places; they can be used in subsequent `install` commands as well as here.
     let target_version = &args.game_version;
     let version_dir = version::utils::get_clients_dir().join(target_version);
-    let local_json_path = version_dir.join(format!("{}.json", target_version));
+    let local_json_path = version_dir.join("version.json");
 
     // Try to load the version detail locally first to support offline mode and speed up launch
     let detail = if local_json_path.exists() {

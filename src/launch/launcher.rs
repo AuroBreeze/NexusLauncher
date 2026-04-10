@@ -45,6 +45,8 @@ pub fn start_game(launch_context: LaunchContext) -> Result<(), AnyError> {
 
     cmd.arg("-XX:+UseG1GC");
     cmd.arg("-cp").arg(classpath);
+    // let main_class = "net.fabricmc.loader.impl.launch.knot.KnotClient";
+    // cmd.arg(main_class);
     cmd.arg(launch_context.main_class);
 
     // === B. Core Game Parameters ===
