@@ -48,11 +48,23 @@ pub enum InstallCommands {
 
     /// Download and install a mod
     Mod(ModArgs),
+
+    /// Download and install the game core
+    Core(CoreArgs),
 }
 
 // ==========================================
 // Component Arguments
 // ==========================================
+// TODO: Prioritize downloading the main file
+#[derive(Args, Debug)]
+pub struct CoreArgs {
+    #[arg(short, long)]
+    pub game_version: Option<String>,
+
+    #[arg(short, long)]
+    pub list: Option<String>,
+}
 
 #[derive(Args, Debug)]
 pub struct LoaderArgs {
@@ -135,8 +147,10 @@ pub struct SetArgs {
 
 #[derive(Args)]
 pub struct LaunchArgs {
-    /// The version to launch
-    pub game_version: String,
+    // // TODO: The game version download has been moved to the `install` command; replace `game_version` here with the folder where the game is located.
+    // // Rename and update the names in other places as well
+    /// The instance to launch
+    pub instance_name: String,
 
     /// The username to use for the game
     #[arg(short, long, default_value = "Default")]
@@ -147,7 +161,7 @@ pub struct LaunchArgs {
     pub max_memory: u32,
 
     /// Launch the game in offline mode
-    #[arg(long)]
+    #[arg(long, short, action = clap::ArgAction::SetTrue)]
     pub offline: bool,
 
     /// Force a re-scan for Java

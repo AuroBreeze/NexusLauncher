@@ -5,6 +5,7 @@ use crate::loader::models::FabricProfile;
 
 #[derive(Debug, Clone, Default)]
 pub struct LaunchContext {
+    // TODO: The game no longer relies on version numbers to launch; instead, it uses the folder name.
     pub version_id: String,         // such as "1.20.1-fabric"
     pub java_path: Option<PathBuf>, // Path to the verified Java executable file
     pub core_jar: PathBuf,          // Path to the original version's core jar

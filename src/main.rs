@@ -21,7 +21,8 @@ use crate::loader::fabric::find_fabric_json;
 use crate::loader::handle_loader;
 use crate::loader::models::FabricProfile;
 use crate::mods::handle_mods;
-use crate::version::utils::get_clients_dir;
+use crate::version::models::VersionDetail;
+use crate::version::utils::{get_clients_dir, get_library_path};
 use crate::{
     auth::utils::silent_login,
     cli::{JavaArgs, LaunchArgs},
@@ -53,6 +54,7 @@ async fn main() -> Result<(), AnyError> {
         Some(Commands::Install(install_args)) => match install_args.command {
             InstallCommands::Mod(mod_args) => handle_mods(&mod_args).await?,
             InstallCommands::Loader(loader_args) => handle_loader(&loader_args).await?,
+            InstallCommands::Core(core_args) => handle_core(&core_args).await?,
         },
 
         Some(Commands::Set(args)) => handle_set(&args).await?,
@@ -61,6 +63,64 @@ async fn main() -> Result<(), AnyError> {
         None => {
             println!("Please specify a command. Use --help");
         }
+    }
+
+    Ok(())
+}
+
+async fn handle_core(args: &cli::CoreArgs) -> Result<(), AnyError> {
+    if let Some(game_version) = &args.game_version {
+        let target_version = game_version;
+
+        let version_dir = version::utils::get_clients_dir().join(target_version);
+        let local_json_path = version_dir.join("version.json");
+        if local_json_path.exists() {
+            tracing::warn!(
+                "The game instance already exists. Please rename the existing instance (if you do not rename it, the default name will be the game version)."
+            );
+            return Ok(());
+        }
+
+        let detail = {
+            // fetch
+            let manifest = version::source::obtain_manifest().await?;
+
+            let v_info = manifest
+                .versions
+                .iter()
+                .find(|v| v.id == *target_version)
+                .ok_or_else(|| format!("Version {} not found in manifest", target_version))?;
+
+            tracing::info!("Fetching version data for {}...", target_version);
+            let d = version::source::fetch_version_detail(&v_info.url).await?;
+
+            // Ensure the directory exists and save the JSON for future offline use
+            tokio::fs::create_dir_all(&version_dir).await?;
+            let json_content = serde_json::to_string_pretty(&d)?;
+            tokio::fs::write(&local_json_path, json_content).await?;
+
+            d
+        };
+
+        // Verify and download the client JAR
+        let client_jar_path = version::utils::get_clients_dir()
+            .join(target_version)
+            .join(format!("{}.jar", target_version));
+
+        if !client_jar_path.exists() {
+            tracing::info!("Downloading core JAR file...");
+            version::download::download_and_verify(
+                &detail.downloads.client.url,
+                &client_jar_path,
+                detail.downloads.client.sha1.as_str(),
+            )
+            .await?;
+        }
+
+        version::source::download_libraries(&detail).await?;
+        version::source::download_assets(&detail).await?;
+
+        tracing::info!("All core components for {} are ready!", target_version);
     }
 
     Ok(())
@@ -179,62 +239,6 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
         }
     }
 
-    // TODO: When downloading the game files and other code, you should use function wrappers and reuse them in multiple places; they can be used in subsequent `install` commands as well as here.
-    let target_version = &args.game_version;
-    let version_dir = version::utils::get_clients_dir().join(target_version);
-    let local_json_path = version_dir.join("version.json");
-
-    // Try to load the version detail locally first to support offline mode and speed up launch
-    let detail = if local_json_path.exists() {
-        tracing::info!(
-            "Using cached version metadata: {}",
-            local_json_path.display()
-        );
-        let content = tokio::fs::read_to_string(&local_json_path).await?;
-        serde_json::from_str::<version::models::VersionDetail>(&content)?
-    } else {
-        // If local metadata is missing, we must fetch the manifest to find the download URL
-        tracing::info!("Local metadata not found. Fetching manifest from Mojang...");
-        let manifest = version::source::obtain_manifest().await?;
-
-        let v_info = manifest
-            .versions
-            .iter()
-            .find(|v| v.id == *target_version)
-            .ok_or_else(|| format!("Version {} not found in manifest", target_version))?;
-
-        tracing::info!("Fetching version data for {}...", target_version);
-        let d = version::source::fetch_version_detail(&v_info.url).await?;
-
-        // Ensure the directory exists and save the JSON for future offline use
-        tokio::fs::create_dir_all(&version_dir).await?;
-        let json_content = serde_json::to_string_pretty(&d)?;
-        tokio::fs::write(&local_json_path, json_content).await?;
-
-        d
-    };
-
-    // Verify and download the client JAR
-    let client_jar_path = version::utils::get_clients_dir()
-        .join(target_version)
-        .join(format!("{}.jar", target_version));
-
-    if !client_jar_path.exists() {
-        tracing::info!("Downloading core JAR file...");
-        version::download::download_and_verify(
-            &detail.downloads.client.url,
-            &client_jar_path,
-            detail.downloads.client.sha1.as_str(),
-        )
-        .await?;
-    }
-
-    // Process libraries and assets using the detail object (cached or newly fetched)
-    let classpath_libs = version::source::download_libraries(&detail).await?;
-    version::source::download_assets(&detail).await?;
-
-    tracing::info!("All core components for {} are ready!", target_version);
-
     // Identity and Access Token Handling
     let access_token;
     let (username, uuid);
@@ -261,15 +265,29 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
         tracing::info!("Mode: Online (User: {})", username);
     }
 
-    let fabric_profile_path =
-        find_fabric_json(&get_clients_dir().join(&args.game_version)).unwrap();
-    let data = std::fs::read_to_string(fabric_profile_path.unwrap().as_path()).unwrap();
-    let fabric_profile: FabricProfile = serde_json::from_str(&data).unwrap();
+    let game_path = &get_clients_dir().join(&args.instance_name);
+    let game_version_json_path = game_path.join("version.json");
+
+    // 1. Convert the initial Result to Option using .ok()
+    // 2. Use .flatten() if find_fabric_json returns Result<Option<P>, E>
+    let fabric_profile = find_fabric_json(game_path)
+        .ok() // Result -> Option<Option<PathBuf>> (based on your first snippet)
+        .flatten() // Option<Option<PathBuf>> -> Option<PathBuf>
+        .and_then(|path| std::fs::read_to_string(path).ok()) // Try read file
+        .and_then(|data| serde_json::from_str::<FabricProfile>(&data).ok()); // Try parse JSON
     // dbg!(&fabric_profile);
+
+    let data = std::fs::read_to_string(game_version_json_path).unwrap();
+    let detail: VersionDetail = serde_json::from_str(&data).unwrap();
+    let client_jar_path = get_clients_dir()
+        .join(&args.instance_name)
+        .join(format!("{}.jar", &args.instance_name));
+
+    // TODO: Add an integrity check before launching the game
 
     // Construct the launch context and start the process
     let launch_context = LaunchContext {
-        version_id: args.game_version.clone(),
+        version_id: args.instance_name.clone(),
         offline: launcher_config.offline,
         java_path: final_java_executable,
         core_jar: client_jar_path,
@@ -280,9 +298,17 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
         },
         max_memory: Some(args.max_memory),
         main_class: detail.main_class.clone(),
-        libraries: classpath_libs,
+        libraries: detail
+            .libraries
+            .iter()
+            .filter_map(|lib| {
+                // Use filter_map to safely handle the Option and avoid unwrap()
+                let artifact = lib.downloads.artifact.as_ref()?;
+                Some(get_library_path(&artifact.path))
+            })
+            .collect(),
         asset_index_id: detail.asset_index.id.clone(),
-        fabric_loader: Some(fabric_profile),
+        fabric_loader: fabric_profile,
     };
 
     start_game(launch_context)?;
