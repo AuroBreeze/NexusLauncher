@@ -23,6 +23,7 @@ use crate::loader::models::FabricProfile;
 use crate::mods::handle_mods;
 use crate::version::models::VersionDetail;
 use crate::version::utils::{get_clients_dir, get_library_path};
+use crate::version::verify_game_integrity;
 use crate::{
     auth::utils::silent_login,
     cli::{JavaArgs, LaunchArgs},
@@ -284,6 +285,8 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
         .join(format!("{}.jar", &args.instance_name));
 
     // TODO: Add an integrity check before launching the game
+
+    verify_game_integrity(game_path).await?;
 
     // Construct the launch context and start the process
     let launch_context = LaunchContext {
