@@ -1,98 +1,13 @@
+use crate::version::download::DownloadTask;
+use crate::version::download::execute_downloads;
+
 use super::AnyError;
 use super::download;
 use super::models::AssetIndexManifest;
 use super::models::{VersionDetail, VersionManifest};
 use super::utils;
-use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use std::path::PathBuf;
-use std::sync::Arc;
-use tokio::sync::Semaphore;
-use tokio::task::JoinSet;
 use tracing;
-
-pub struct DownloadTask {
-    pub name: String,
-    pub url: String,
-    pub local_path: PathBuf,
-    pub sha1: String,
-}
-
-pub async fn execute_downloads(
-    tasks: Vec<DownloadTask>,
-    progress_template: &str,
-    max_concurrent: usize,
-    finish_message: &str,
-) -> Result<(), AnyError> {
-    if tasks.is_empty() {
-        return Ok(());
-    }
-
-    let mp = MultiProgress::new();
-    let main_pb = mp.add(ProgressBar::new(tasks.len() as u64));
-    main_pb.set_style(ProgressStyle::with_template(progress_template)?);
-
-    let mut set = JoinSet::new();
-    // use Semaphore to control the number of concurrent downloads
-    let semaphore = Arc::new(Semaphore::new(max_concurrent));
-
-    for task in tasks {
-        let pb = main_pb.clone();
-
-        // 1. check local cach
-        if task.local_path.exists() {
-            main_pb.set_message(format!("✅ Cached: {}", task.name));
-            main_pb.inc(1);
-            continue;
-        }
-
-        let sem_clone = Arc::clone(&semaphore);
-
-        // 2. dispatch async tasks
-        set.spawn(async move {
-            // Acquire the permit FIRST before doing any work or updating UI
-            let _permit = sem_clone.acquire_owned().await.unwrap();
-
-            // NOW update the message, so it reflects the file currently being downloaded
-            pb.set_message(format!("📥 {}", task.name));
-
-            let mut attempts = 0;
-            let max_retries = 5;
-
-            // 3. try to download
-            loop {
-                match download::download_and_verify(&task.url, &task.local_path, &task.sha1).await {
-                    Ok(_) => break Ok(()),
-                    Err(e) => {
-                        attempts += 1;
-                        if attempts > max_retries {
-                            tracing::error!("❌ Download failed completely [{}]: {}", task.name, e);
-                            break Err(e);
-                        }
-
-                        let wait_time = 2u64.pow(attempts as u32 - 1);
-                        // Update message to show retry status for the current active task
-                        pb.set_message(format!(
-                            "⏳ Retry ({}/{}) [{}]: {}",
-                            attempts, max_retries, task.name, e
-                        ));
-                        tokio::time::sleep(tokio::time::Duration::from_secs(wait_time)).await;
-                    }
-                }
-            }
-        });
-    }
-
-    // wait for all tasks to complete and capture potential errors
-    while let Some(res) = set.join_next().await {
-        res??; // finish ? handle JoinError (panic), second ? handle AnyError
-        main_pb.inc(1);
-    }
-
-    main_pb.set_message("Done!");
-    main_pb.finish_with_message(finish_message.to_string());
-
-    Ok(())
-}
 
 /// obtain_manifest
 pub async fn obtain_manifest() -> Result<VersionManifest, AnyError> {
