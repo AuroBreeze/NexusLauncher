@@ -244,26 +244,50 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
     let access_token;
     let (username, uuid);
 
-    if launcher_config.offline {
-        access_token = "offline_token".to_string();
-        username = if user_config.user_profile.offline.username.is_empty() {
-            "Default".to_string()
-        } else {
-            user_config.user_profile.offline.username.clone()
-        };
+    if let Some(offline) = args.offline {
+        if offline {
+            access_token = "offline_token".to_string();
+            username = if user_config.user_profile.offline.username.is_empty() {
+                "Default".to_string()
+            } else {
+                user_config.user_profile.offline.username.clone()
+            };
 
-        uuid = if user_config.user_profile.offline.uuid.is_empty() {
-            "offline".to_string()
-        } else {
-            user_config.user_profile.offline.uuid.clone()
-        };
+            uuid = if user_config.user_profile.offline.uuid.is_empty() {
+                "offline".to_string()
+            } else {
+                user_config.user_profile.offline.uuid.clone()
+            };
 
-        tracing::info!("Mode: Offline (User: {}, UUID: {})", username, uuid);
+            tracing::info!("Mode: Offline (User: {}, UUID: {})", username, uuid);
+        } else {
+            username = user_config.user_profile.online.username.clone();
+            uuid = user_config.user_profile.online.uuid.clone();
+            access_token = silent_login(&uuid).await?;
+            tracing::info!("Mode: Online (User: {})", username);
+        }
     } else {
-        username = user_config.user_profile.online.username.clone();
-        uuid = user_config.user_profile.online.uuid.clone();
-        access_token = silent_login(&uuid).await?;
-        tracing::info!("Mode: Online (User: {})", username);
+        if launcher_config.offline {
+            access_token = "offline_token".to_string();
+            username = if user_config.user_profile.offline.username.is_empty() {
+                "Default".to_string()
+            } else {
+                user_config.user_profile.offline.username.clone()
+            };
+
+            uuid = if user_config.user_profile.offline.uuid.is_empty() {
+                "offline".to_string()
+            } else {
+                user_config.user_profile.offline.uuid.clone()
+            };
+
+            tracing::info!("Mode: Offline (User: {}, UUID: {})", username, uuid);
+        } else {
+            username = user_config.user_profile.online.username.clone();
+            uuid = user_config.user_profile.online.uuid.clone();
+            access_token = silent_login(&uuid).await?;
+            tracing::info!("Mode: Online (User: {})", username);
+        }
     }
 
     let game_path = &get_clients_dir().join(&args.instance_name);

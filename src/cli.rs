@@ -161,8 +161,8 @@ pub struct LaunchArgs {
     pub max_memory: u32,
 
     /// Launch the game in offline mode
-    #[arg(long, short, action = clap::ArgAction::SetTrue)]
-    pub offline: bool,
+    #[arg(long, short)]
+    pub offline: Option<bool>,
 
     /// Force a re-scan for Java
     #[arg(short, long, action = clap::ArgAction::SetTrue)]
