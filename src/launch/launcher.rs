@@ -29,7 +29,7 @@ pub fn start_game(launch_context: LaunchContext) -> Result<(), AnyError> {
     // Determine Main Class and add Fabric libraries if needed
     let final_main_class = if let Some(fabric_profile) = &launch_context.fabric_loader {
         tracing::info!("Fabric profile found!");
-        let libs_base_dir = utils::get_clients_dir().join(&launch_context.version_id);
+        let libs_base_dir = &launch_context.game_path;
 
         for p in &fabric_profile.libraries {
             let relative_path = maven_to_path(&p.name);
@@ -53,11 +53,11 @@ pub fn start_game(launch_context: LaunchContext) -> Result<(), AnyError> {
     // Setup Directories
     let mc_dir = utils::get_minecraft_dir();
     let assets_dir = mc_dir.join("assets");
-    let version_isolated_dir = get_clients_dir().join(&launch_context.version_id);
+    // let version_isolated_dir = get_clients_dir().join(&launch_context.version_id);
 
-    if !version_isolated_dir.exists() {
-        std::fs::create_dir_all(&version_isolated_dir)?;
-    }
+    // if !version_isolated_dir.exists() {
+    //     std::fs::create_dir_all(&version_isolated_dir)?;
+    // }
 
     // JVM Runtime Parameters (MUST be before Main Class)
     if let Some(max_memory) = launch_context.max_memory {
@@ -73,7 +73,7 @@ pub fn start_game(launch_context: LaunchContext) -> Result<(), AnyError> {
     cmd.arg("--username").arg(&launch_context.user.username);
     cmd.arg("--version").arg(&launch_context.version_id);
     cmd.arg("--uuid").arg(&launch_context.user.uuid);
-    cmd.arg("--gameDir").arg(&version_isolated_dir);
+    cmd.arg("--gameDir").arg(&launch_context.game_path);
     cmd.arg("--assetsDir").arg(&assets_dir);
     cmd.arg("--assetIndex").arg(&launch_context.asset_index_id);
 

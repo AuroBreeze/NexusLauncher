@@ -304,18 +304,19 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
 
     let data = std::fs::read_to_string(game_version_json_path).unwrap();
     let detail: VersionDetail = serde_json::from_str(&data).unwrap();
+    let version_id = detail.id;
     let client_jar_path = get_clients_dir()
         .join(&args.instance_name)
-        .join(format!("{}.jar", &args.instance_name));
-
-    // TODO: Add an integrity check before launching the game
+        .join(format!("{}.jar", &version_id));
 
     verify_game_integrity(game_path).await?;
 
+    // TODO: Optimize LaunchContext by removing duplicate components from the assembly, such as client_core_jar, and use game_path for assembly at the start_game stage.
+    //
     // Construct the launch context and start the process
     let launch_context = LaunchContext {
-        version_id: args.instance_name.clone(),
-        offline: launcher_config.offline,
+        game_path: PathBuf::from(game_path),
+        version_id,
         java_path: final_java_executable,
         core_jar: client_jar_path,
         user: UserContext {
