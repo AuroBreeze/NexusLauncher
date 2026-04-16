@@ -352,6 +352,7 @@ async fn handle_java(args: &JavaArgs) -> Result<(), AnyError> {
         let java_version = args.version;
         let custom_runtime_dir = version::utils::get_minecraft_dir().join("runtimes");
         download_java(java_version, custom_runtime_dir.as_path()).await?;
+        test
     }
 
     if args.scan {
