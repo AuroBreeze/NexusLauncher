@@ -1,21 +1,14 @@
 # Nexus Launcher
 
-A command-line Minecraft launcher written in Rust.
-
-## Overview
-
-Nexus Launcher is designed to be lightweight and operates entirely from the terminal, avoiding the resource overhead of a graphical user interface. It handles asynchronous game asset downloads and automatically sets up the required Java environment to launch the game.
-
-NexusLauncher is an `unofficial` open-source launcher and is not affiliated with Mojang or Microsoft.
+A high-performance, command-line Minecraft launcher written in Rust.
 
 ## Features
 
-- **Asynchronous downloads**: Concurrent asset and library downloads with connection limits
-- **Java management**: Automatic detection and download of required Java versions
-- **Authentication**: Microsoft account login with token persistence
-- **Version isolation**: Separate directories for each game version
-- **Mod loader support**: Fabric and Quilt installation
-- **Offline mode**: Play without authentication
+- **Java Management**: Automatic detection and downloading of required Java versions (defaulting to 17).
+- **Game Installation**: Download core JARs, libraries, and assets asynchronously.
+- **Mod Loader Support**: Built-in support for Fabric and Quilt installation.
+- **Authentication**: Supports both Microsoft online login and offline modes.
+- **Performance**: Lightweight and fast, built on the Tokio runtime.
 
 ## Installation
 
@@ -27,27 +20,35 @@ cargo build --release
 
 ## Usage
 
-### Launch a game
+### 1. Install a Game Version
+```bash
+cargo run -- install core --game-version 1.20.1
+```
+
+### 2. Install a Loader (Optional)
+```bash
+cargo run -- install loader 1.20.1 --loader fabric
+```
+
+### 3. Launch the Game
 ```bash
 cargo run -- launch 1.20.1
 ```
 
-## Commands
+## Command Reference
 
-- `launch <version>` - Launch Minecraft (options: `--player-name`, `--max-memory`, `--offline`, `--force-scan`)
+- `launch <instance>` - Launch a game instance (options: `--offline`, `--max-memory`, `--force-scan`)
+- `install core --game-version <V>` - Download a specific Minecraft version
+- `install loader <instance> --loader <fabric|quilt>` - Install a mod loader
+- `install mod --query <Q> --game-version <V>` - Search and install mods
+- `java --scan` - Scan local system for Java installations
+- `java --download --version <N>` - Download a specific Java runtime
 - `auth --login` - Authenticate with Microsoft
-- `auth --logout <username>` - Remove authentication
-- `java --scan` - Scan for Java installations
-- `java --download --version <N>` - Download Java runtime
-- `loader <version> --loader <fabric|quilt>` - Install mod loader
-- `set --name <name>` - Set offline username
-- `set --show` - Display current settings
+- `set --show` - Display current configuration and settings
 
-## Requirements
+## Contributing
 
-- Rust 1.70+ and Cargo
-- Internet connection for downloads
-- System credential manager for token storage
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
