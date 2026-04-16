@@ -15,6 +15,7 @@ pub fn start_game(launch_context: LaunchContext) -> Result<(), AnyError> {
     let mut cmd = Command::new(java_path);
 
     // Build the Classpath
+    // PERF: Migrate the code and optimize the code structure
     #[cfg(target_os = "windows")]
     let sep = ";";
     #[cfg(not(target_os = "windows"))]

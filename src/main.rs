@@ -244,6 +244,8 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
     let access_token;
     let (username, uuid);
 
+    // PERF: Optimize the code here
+    // TODO: Add the usercache.json file from the game instance and synchronize the game's access_token
     if let Some(offline) = args.offline {
         if offline {
             access_token = "offline_token".to_string();
@@ -344,6 +346,7 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
     Ok(())
 }
 
+// TODO: Migrate code
 async fn handle_java(args: &JavaArgs) -> Result<(), AnyError> {
     if args.download {
         let java_version = args.version;

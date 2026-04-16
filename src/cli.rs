@@ -15,6 +15,7 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
+    // TODO: Add support for launching on older versions
     /// Launch a Minecraft game
     Launch(LaunchArgs),
 
@@ -43,12 +44,17 @@ pub struct InstallArgs {
 
 #[derive(Subcommand)]
 pub enum InstallCommands {
+    // TODO: Increase downloads of other loaders
+    // TODO: Add a search function to the loader
     /// Download and install a loader (e.g., Fabric, Quilt)
     Loader(LoaderArgs),
 
+    // TODO: Add a mod search and download function
     /// Download and install a mod
     Mod(ModArgs),
 
+    // TODO: Downloads compatible with older versions
+    //
     /// Download and install the game core
     Core(CoreArgs),
 }
@@ -96,6 +102,7 @@ pub struct ModArgs {
 // Enums & Other Arguments
 // ==========================================
 
+// PERF: Migrate code
 #[derive(Debug, Clone, ValueEnum)]
 pub enum Loaders {
     Fabric,
@@ -147,8 +154,8 @@ pub struct SetArgs {
 
 #[derive(Args)]
 pub struct LaunchArgs {
-    // // TODO: The game version download has been moved to the `install` command; replace `game_version` here with the folder where the game is located.
-    // // Rename and update the names in other places as well
+    // TODO: The game version download has been moved to the `install` command; replace `game_version` here with the folder where the game is located.
+    // Rename and update the names in other places as well
     /// The instance to launch
     pub instance_name: String,
 

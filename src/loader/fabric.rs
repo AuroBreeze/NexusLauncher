@@ -126,8 +126,6 @@ pub async fn get_fabric_profile(
     Ok(profile)
 }
 
-// src/loader/fabric.rs
-
 use crate::version::{download::pool_download_and_link, utils::maven_to_path};
 
 pub async fn install_fabric_libraries(
