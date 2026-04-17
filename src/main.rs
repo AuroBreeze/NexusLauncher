@@ -64,6 +64,10 @@ async fn main() -> Result<(), AnyError> {
         None => {
             println!("Please specify a command. Use --help");
         }
+
+        _ => {
+            unimplemented!()
+        }
     }
 
     Ok(())
