@@ -30,6 +30,8 @@ pub enum Commands {
 
     /// Set and get options
     Set(SetArgs),
+    // TODO: Add a search subcommand and extract and migrate the search functionality from other commands
+    // such as Search for Java, Search for mod, Search for loader, Search for version and so on.
 }
 
 // ==========================================
