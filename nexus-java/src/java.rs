@@ -22,8 +22,7 @@ pub struct JavaInfo {
 /// "17.0.8" -> 17
 fn parse_major_version(version_str: &str) -> Option<u32> {
     // Split the string by . or _
-    // PERF: Optimize the code at the yellow line
-    let parts: Vec<&str> = version_str.split(|c| c == '.' || c == '_').collect();
+    let parts: Vec<&str> = version_str.split(['.', '_']).collect();
     if parts.is_empty() {
         return None;
     }

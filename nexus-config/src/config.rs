@@ -7,8 +7,8 @@ pub trait Config: Serialize + DeserializeOwned + Default {
     fn get_config_path() -> PathBuf;
     async fn load() -> Self {
         let path = Self::get_config_path();
-        if path.exists() {
-            if let Ok(content) = fs::read_to_string(&path).await {
+        if path.exists()
+            && let Ok(content) = fs::read_to_string(&path).await {
                 match toml::from_str::<Self>(&content) {
                     Ok(config) => {
                         tracing::debug!("Successfully loaded configuration from TOML.");
@@ -23,7 +23,6 @@ pub trait Config: Serialize + DeserializeOwned + Default {
                     }
                 }
             }
-        }
         tracing::debug!("No valid config found, using default settings.");
 
         Self::default()

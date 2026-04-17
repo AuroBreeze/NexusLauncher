@@ -11,9 +11,11 @@ nexus-config = {path = "../nexus-config"}
 nexus-java = {path = "../nexus-java"}
 nexus-mods = {path = "../nexus-mods"}
 nexus-loader = {path = "../nexus-loader"}
+nexus-launch = {path = "../nexus-launch"}
 
 tokio = {workspace = true}
 tracing-subscriber = {workspace = true}
 clap = {workspace = true}
 tracing = {workspace = true}
 serde_json = {workspace = true}
+walkdir = {workspace = true}

@@ -3,9 +3,25 @@ use nexus_config::handle_set;
 use nexus_loader::handle_loader;
 use nexus_mods::handle_mods;
 
+use nexus_auth::utils::silent_login;
 use nexus_cli::cli::*;
+use nexus_config::models::UserConfig;
+use nexus_launch::launcher::start_game;
+use nexus_launch::models::{LaunchContext, UserContext};
 use nexus_version::AnyError;
 use nexus_version::utils::get_clients_dir;
+
+use clap::Parser;
+use nexus_config::config::Config;
+use nexus_config::models::LaunchConfig;
+use nexus_java::java;
+use nexus_java::java::download_java;
+use nexus_loader::fabric::find_fabric_json;
+use nexus_loader::models::FabricProfile;
+use nexus_version::models::VersionDetail;
+use nexus_version::utils::get_library_path;
+use nexus_version::verify_game_integrity;
+use std::path::PathBuf;
 
 #[tokio::main]
 async fn main() -> Result<(), AnyError> {
@@ -166,7 +182,7 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
             );
 
             // 1. Download and extract Java into the runtimes folder
-            let custom_runtime_dir = version::utils::get_minecraft_dir().join("runtimes");
+            let custom_runtime_dir = nexus_version::utils::get_minecraft_dir().join("runtimes");
             let new_java_dir =
                 java::download_java(required_java_version, &custom_runtime_dir).await?;
 
