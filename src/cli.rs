@@ -90,8 +90,6 @@ pub struct LoaderArgs {
     // Game Version Name
     pub game_name: String,
 
-    // The game version to install the loader for
-    // pub game_version: String,
     #[arg(short, long)]
     pub loader: Loaders,
 }
@@ -100,11 +98,20 @@ pub struct LoaderArgs {
 pub struct ModArgs {
     /// Query string to search for the mod
     #[arg(short, long)]
-    pub query: String,
+    pub query: Option<String>,
+
+    #[arg(
+        short, 
+        long, 
+        default_value = "5", 
+        value_parser = clap::value_parser!(i32).range(1..=10),
+        help = "The maximum number is 10"
+    )]
+    pub limit: Option<i32>,
 
     /// Target game version for the mod
     #[arg(short, long)]
-    pub game_version: String,
+    pub game_version: Option<String>,
 
     /// Flag to trigger the download process
     #[arg(long, action = clap::ArgAction::SetTrue)]
