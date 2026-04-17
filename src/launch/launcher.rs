@@ -1,6 +1,6 @@
 use crate::launch::models::LaunchContext;
 use crate::version::AnyError;
-use crate::version::utils::{self, get_clients_dir, maven_to_path};
+use crate::version::utils::{self, maven_to_path};
 use std::process::Command;
 
 pub fn start_game(launch_context: LaunchContext) -> Result<(), AnyError> {

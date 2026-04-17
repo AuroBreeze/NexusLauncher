@@ -7,5 +7,6 @@ pub async fn handle_mods(args: &ModArgs) -> Result<(), AnyError> {
     if args.download {
         search_mods(&args.query).await?;
     }
+
     Ok(())
 }
