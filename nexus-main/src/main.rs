@@ -1,24 +1,22 @@
+use clap::Parser;
 use nexus_auth::handle_auth;
-use nexus_config::handle_set;
-use nexus_loader::handle_loader;
-use nexus_mods::handle_mods;
-
 use nexus_auth::utils::silent_login;
 use nexus_cli::cli::*;
-use nexus_config::models::UserConfig;
-use nexus_launch::launcher::start_game;
-use nexus_launch::models::{LaunchContext, UserContext};
-use nexus_version::AnyError;
-use nexus_version::utils::get_clients_dir;
-
-use clap::Parser;
 use nexus_config::config::Config;
+use nexus_config::handle_set;
 use nexus_config::models::LaunchConfig;
+use nexus_config::models::UserConfig;
 use nexus_java::java;
 use nexus_java::java::download_java;
+use nexus_launch::launcher::start_game;
+use nexus_launch::models::{LaunchContext, UserContext};
 use nexus_loader::fabric::find_fabric_json;
+use nexus_loader::handle_loader;
 use nexus_loader::models::FabricProfile;
+use nexus_mods::handle_mods;
+use nexus_version::AnyError;
 use nexus_version::models::VersionDetail;
+use nexus_version::utils::get_clients_dir;
 use nexus_version::utils::get_library_path;
 use nexus_version::verify_game_integrity;
 use std::path::PathBuf;
