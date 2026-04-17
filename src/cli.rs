@@ -32,6 +32,17 @@ pub enum Commands {
     Set(SetArgs),
     // TODO: Add a search subcommand and extract and migrate the search functionality from other commands
     // such as Search for Java, Search for mod, Search for loader, Search for version and so on.
+    Search(SearchArgs),
+}
+
+#[derive(Args)]
+pub struct SearchArgs {
+    // category: String,
+    /// Query string to search for the mod
+    pub category: String,
+
+    #[arg(short, long)]
+    pub version: Option<String>,
 }
 
 // ==========================================
