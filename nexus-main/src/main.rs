@@ -1,31 +1,40 @@
 use clap::Parser;
+use std::path::PathBuf;
+
 use nexus_auth::handle_auth;
 use nexus_auth::utils::silent_login;
+
 use nexus_cli::cli::*;
+
 use nexus_config::config::Config;
 use nexus_config::handle_set;
-use nexus_config::models::LaunchConfig;
-use nexus_config::models::UserConfig;
-use nexus_java::java;
-use nexus_java::java::download_java;
+use nexus_config::models::{LaunchConfig, UserConfig};
+
+use nexus_java::java::{download_java, scan_local_java_environments};
+
 use nexus_launch::launcher::start_game;
 use nexus_launch::models::{LaunchContext, UserContext};
+
 use nexus_loader::fabric::find_fabric_json;
 use nexus_loader::handle_loader;
 use nexus_loader::models::FabricProfile;
+
 use nexus_mods::handle_mods;
+
 use nexus_version::AnyError;
+use nexus_version::download::download_and_verify;
 use nexus_version::models::VersionDetail;
-use nexus_version::utils::get_clients_dir;
-use nexus_version::utils::get_library_path;
+use nexus_version::source::{
+    download_assets, download_libraries, fetch_version_detail, obtain_manifest,
+};
+use nexus_version::utils::{get_clients_dir, get_library_path, get_minecraft_dir, init_workspace};
 use nexus_version::verify_game_integrity;
-use std::path::PathBuf;
 
 #[tokio::main]
 async fn main() -> Result<(), AnyError> {
     let cli = Cli::parse();
 
-    nexus_version::utils::init_workspace()?;
+    init_workspace()?;
     // Initialize the logger
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -66,7 +75,7 @@ async fn handle_core(args: &CoreArgs) -> Result<(), AnyError> {
     if let Some(game_version) = &args.game_version {
         let target_version = game_version;
 
-        let version_dir = nexus_version::utils::get_clients_dir().join(target_version);
+        let version_dir = get_clients_dir().join(target_version);
         let local_json_path = version_dir.join("version.json");
         if local_json_path.exists() {
             tracing::warn!(
@@ -77,7 +86,7 @@ async fn handle_core(args: &CoreArgs) -> Result<(), AnyError> {
 
         let detail = {
             // fetch
-            let manifest = nexus_version::source::obtain_manifest().await?;
+            let manifest = obtain_manifest().await?;
 
             let v_info = manifest
                 .versions
@@ -86,7 +95,7 @@ async fn handle_core(args: &CoreArgs) -> Result<(), AnyError> {
                 .ok_or_else(|| format!("Version {} not found in manifest", target_version))?;
 
             tracing::info!("Fetching version data for {}...", target_version);
-            let d = nexus_version::source::fetch_version_detail(&v_info.url).await?;
+            let d = fetch_version_detail(&v_info.url).await?;
 
             // Ensure the directory exists and save the JSON for future offline use
             tokio::fs::create_dir_all(&version_dir).await?;
@@ -97,13 +106,13 @@ async fn handle_core(args: &CoreArgs) -> Result<(), AnyError> {
         };
 
         // Verify and download the client JAR
-        let client_jar_path = nexus_version::utils::get_clients_dir()
+        let client_jar_path = get_clients_dir()
             .join(target_version)
             .join(format!("{}.jar", target_version));
 
         if !client_jar_path.exists() {
             tracing::info!("Downloading core JAR file...");
-            nexus_version::download::download_and_verify(
+            download_and_verify(
                 &detail.downloads.client.url,
                 &client_jar_path,
                 detail.downloads.client.sha1.as_str(),
@@ -111,8 +120,8 @@ async fn handle_core(args: &CoreArgs) -> Result<(), AnyError> {
             .await?;
         }
 
-        nexus_version::source::download_libraries(&detail).await?;
-        nexus_version::source::download_assets(&detail).await?;
+        download_libraries(&detail).await?;
+        download_assets(&detail).await?;
 
         tracing::info!("All core components for {} are ready!", target_version);
     }
@@ -151,7 +160,7 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
         );
 
         // Scan local environments
-        let local_javas = java::scan_local_java_environments(None).await;
+        let local_javas = scan_local_java_environments(None).await;
 
         let mut found_path = None;
         for j in local_javas {
@@ -180,9 +189,8 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
             );
 
             // 1. Download and extract Java into the runtimes folder
-            let custom_runtime_dir = nexus_version::utils::get_minecraft_dir().join("runtimes");
-            let new_java_dir =
-                java::download_java(required_java_version, &custom_runtime_dir).await?;
+            let custom_runtime_dir = get_minecraft_dir().join("runtimes");
+            let new_java_dir = download_java(required_java_version, &custom_runtime_dir).await?;
 
             // 2. Rescan the newly downloaded directory to dynamically find the exact bin/java path
             let java_bin = if cfg!(target_os = "windows") {
@@ -351,7 +359,7 @@ async fn handle_java(args: &JavaArgs) -> Result<(), AnyError> {
         tracing::info!("📦 Scanning local Java environments...");
 
         let mut config = LaunchConfig::load().await;
-        let local_javas = nexus_java::java::scan_local_java_environments(None).await;
+        let local_javas = scan_local_java_environments(None).await;
 
         tracing::info!("📦 Found {} Java environments:", local_javas.len());
         for j in local_javas {

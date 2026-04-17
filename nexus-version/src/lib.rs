@@ -12,6 +12,7 @@ use crate::source::{download_assets, download_libraries};
 
 pub type AnyError = Box<dyn std::error::Error + Send + Sync>;
 
+// TODO: Migrate Code
 pub async fn verify_game_integrity(game_path: &Path) -> Result<(), AnyError> {
     let game_version_json_path = game_path.join("version.json");
     if !game_version_json_path.exists() {
