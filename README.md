@@ -2,6 +2,8 @@
 
 A high-performance, command-line Minecraft launcher written in Rust.
 
+This is an unofficial launcher and is not affiliated with Mojang or Microsoft.
+
 ## Features
 
 - **Java Management**: Automatic detection and downloading of required Java versions (defaulting to 17).
@@ -49,6 +51,12 @@ cargo run -- launch 1.20.1
 ## Contributing
 
 Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+## Group
+
+We’re a group of friends who love Minecraft and programming. We’re currently developing a high-performance, user-friendly Minecraft launcher. Whether you’re a developer or just a gaming enthusiast, you’re welcome to join our community and chat with us!
+
+This is our `discord` community: [link](https://discord.gg/gM85PKSYEe)
 
 ## License
 
