@@ -1,0 +1,17 @@
+[package]
+name = "nexus-java"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+nexus-version = {path = "../nexus-version"}
+
+futures-util = {workspace = true}
+indicatif = {workspace = true}
+regex = {workspace = true}
+tokio = {workspace = true}
+tracing = {workspace = true}
+tar = {workspace = true}
+flate2 = {workspace = true}
+zip = {workspace = true}
+reqwest = {workspace = true}

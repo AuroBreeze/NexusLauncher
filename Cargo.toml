@@ -1,9 +1,22 @@
-[package]
-name = "NexusLauncher"
-version = "0.1.0"
-edition = "2024"
+# [package]
+# name = "NexusLauncher"
+# version = "0.1.0"
+# edition = "2024"
 
-[dependencies]
+[workspace]
+members = [
+    "nexus-main",
+    "nexus-cli",
+    "nexus-auth",
+    "nexus-config", 
+    "nexus-version",
+    "nexus-java",
+    "nexus-launch",
+    "nexus-loader",
+    "nexus-mods",
+]
+
+[workspace.dependencies]
 aes-gcm = "0.10.3"
 clap = { version = "4.6.0", features = ["derive"] }
 flate2 = "1.1.9"

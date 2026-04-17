@@ -1,0 +1,14 @@
+[package]
+name = "nexus-config"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+nexus-version = {path = "../nexus-version"}
+nexus-cli = {path = "../nexus-cli"}
+nexus-java = {path = "../nexus-java"}
+
+serde = {workspace = true}
+tokio = {workspace = true}
+tracing = {workspace = true}
+toml = {workspace = true}

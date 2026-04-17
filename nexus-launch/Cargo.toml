@@ -1,0 +1,10 @@
+[package]
+name = "nexus-launch"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+nexus-version = {path = "../nexus-version"}
+nexus-loader = {path = "../nexus-loader"}
+
+tracing = {workspace = true}
