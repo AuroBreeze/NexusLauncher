@@ -1,7 +1,6 @@
 use super::AnyError;
 use super::download::{DownloadTask, download_and_verify, execute_downloads};
 use super::models::{AssetIndexManifest, VersionDetail, VersionManifest};
-use super::utils;
 use std::path::PathBuf;
 
 /// obtain_manifest
@@ -37,7 +36,7 @@ pub async fn download_libraries(detail: &VersionDetail) -> Result<Vec<PathBuf>, 
     // Parse out the content and path
     for lib in &detail.libraries {
         if let Some(artifact) = &lib.downloads.artifact {
-            let local_path = utils::get_library_path(&artifact.path);
+            let local_path = nexus_core::get_library_path(&artifact.path);
             classpath_libs.push(local_path.clone());
 
             tasks.push(DownloadTask {
@@ -61,7 +60,7 @@ pub async fn download_libraries(detail: &VersionDetail) -> Result<Vec<PathBuf>, 
 
 pub async fn download_assets(detail: &VersionDetail) -> Result<(), AnyError> {
     tracing::info!("Start processing the asset files...");
-    let mc_dir = utils::get_minecraft_dir();
+    let mc_dir = nexus_core::get_minecraft_dir();
 
     // 1. download asset index
     let index_path = mc_dir

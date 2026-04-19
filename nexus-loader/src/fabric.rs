@@ -1,9 +1,10 @@
 use super::models::{FabricLoaderResponse, FabricProfile};
-use nexus_version::{AnyError, utils::get_clients_dir};
+use nexus_core::*;
+use nexus_version::AnyError;
+use nexus_version::download::pool_download_and_link;
 use serde_json::Value;
 use std::path::PathBuf;
 use tokio::fs;
-
 /// Find the version JSON file within the game directory
 pub fn find_game_json(game_name: &str) -> Result<PathBuf, AnyError> {
     // 1. Get the base directory and join with game_name
@@ -122,8 +123,6 @@ pub async fn get_fabric_profile(
     tracing::info!("Fabric profile obtained and saved");
     Ok(profile)
 }
-
-use nexus_version::{download::pool_download_and_link, utils::maven_to_path};
 
 pub async fn install_fabric_libraries(
     profile: &FabricProfile,

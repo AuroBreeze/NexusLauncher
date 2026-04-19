@@ -1,0 +1,8 @@
+[package]
+name = "nexus-core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+home = {workspace = true}
+tracing = {workspace = true}

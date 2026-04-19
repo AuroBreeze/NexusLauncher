@@ -1,7 +1,6 @@
 pub mod download;
 pub mod models;
 pub mod source;
-pub mod utils;
 
 use std::fs;
 use std::path::Path;
@@ -23,7 +22,7 @@ pub async fn verify_game_integrity(game_path: &Path) -> Result<(), AnyError> {
 
     let target_version = &detail.id;
 
-    let client_jar_path = utils::get_clients_dir()
+    let client_jar_path = nexus_core::get_clients_dir()
         .join(target_version)
         .join(format!("{}.jar", target_version));
 

@@ -2,8 +2,8 @@ use aes_gcm::{
     Aes256Gcm, Nonce,
     aead::{Aead, KeyInit},
 };
+use nexus_core::get_minecraft_dir;
 use nexus_version::AnyError;
-use nexus_version::utils::get_minecraft_dir;
 use sha2::{Digest, Sha256};
 use std::fs;
 

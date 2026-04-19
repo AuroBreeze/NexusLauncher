@@ -1,12 +1,12 @@
 use crate::{config::Config, models::LaunchConfig};
+use nexus_core::get_minecraft_dir;
 use nexus_java::java::check_java_executable;
-use nexus_version::utils;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
 impl Config for LaunchConfig {
     fn get_config_path() -> PathBuf {
-        utils::get_minecraft_dir().join("launch_config.toml")
+        get_minecraft_dir().join("launch_config.toml")
     }
 }
 

@@ -1077,6 +1077,7 @@ dependencies = [
  "machine-uid",
  "nexus-cli",
  "nexus-config",
+ "nexus-core",
  "nexus-version",
  "reqwest",
  "serde",
@@ -1098,11 +1099,20 @@ name = "nexus-config"
 version = "0.1.0"
 dependencies = [
  "nexus-cli",
+ "nexus-core",
  "nexus-java",
  "nexus-version",
  "serde",
  "tokio",
  "toml",
+ "tracing",
+]
+
+[[package]]
+name = "nexus-core"
+version = "0.1.0"
+dependencies = [
+ "home",
  "tracing",
 ]
 
@@ -1113,6 +1123,7 @@ dependencies = [
  "flate2",
  "futures-util",
  "indicatif",
+ "nexus-core",
  "nexus-version",
  "regex",
  "reqwest",
@@ -1126,6 +1137,7 @@ dependencies = [
 name = "nexus-launch"
 version = "0.1.0"
 dependencies = [
+ "nexus-core",
  "nexus-loader",
  "nexus-version",
  "tracing",
@@ -1136,6 +1148,7 @@ name = "nexus-loader"
 version = "0.1.0"
 dependencies = [
  "nexus-cli",
+ "nexus-core",
  "nexus-version",
  "reqwest",
  "serde",
@@ -1152,6 +1165,7 @@ dependencies = [
  "nexus-auth",
  "nexus-cli",
  "nexus-config",
+ "nexus-core",
  "nexus-java",
  "nexus-launch",
  "nexus-loader",
@@ -1184,6 +1198,7 @@ dependencies = [
  "hex",
  "home",
  "indicatif",
+ "nexus-core",
  "reqwest",
  "serde",
  "serde_json",

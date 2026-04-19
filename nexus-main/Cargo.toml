@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+nexus-core = {path = "../nexus-core"}
 nexus-version = {path = "../nexus-version"}
 nexus-cli = {path = "../nexus-cli"}
 nexus-auth = {path = "../nexus-auth"}

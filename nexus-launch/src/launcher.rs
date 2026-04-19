@@ -1,6 +1,6 @@
 use crate::models::LaunchContext;
+use nexus_core::{self, get_minecraft_dir, maven_to_path};
 use nexus_version::AnyError;
-use nexus_version::utils::{self, maven_to_path};
 use std::process::Command;
 
 pub fn start_game(launch_context: LaunchContext) -> Result<(), AnyError> {
@@ -52,7 +52,7 @@ pub fn start_game(launch_context: LaunchContext) -> Result<(), AnyError> {
     let classpath = cp_paths.join(sep);
 
     // Setup Directories
-    let mc_dir = utils::get_minecraft_dir();
+    let mc_dir = get_minecraft_dir();
     let assets_dir = mc_dir.join("assets");
     // let version_isolated_dir = get_clients_dir().join(&launch_context.version_id);
 

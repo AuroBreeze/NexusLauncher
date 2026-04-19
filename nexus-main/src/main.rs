@@ -21,13 +21,14 @@ use nexus_loader::models::FabricProfile;
 
 use nexus_mods::handle_mods;
 
+use nexus_core::*;
+
 use nexus_version::AnyError;
 use nexus_version::download::download_and_verify;
 use nexus_version::models::VersionDetail;
 use nexus_version::source::{
     download_assets, download_libraries, fetch_version_detail, obtain_manifest,
 };
-use nexus_version::utils::{get_clients_dir, get_library_path, get_minecraft_dir, init_workspace};
 use nexus_version::verify_game_integrity;
 
 #[tokio::main]
@@ -352,7 +353,7 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
 async fn handle_java(args: &JavaArgs) -> Result<(), AnyError> {
     if args.download {
         let java_version = args.version;
-        let custom_runtime_dir = nexus_version::utils::get_minecraft_dir().join("runtimes");
+        let custom_runtime_dir = get_minecraft_dir().join("runtimes");
         download_java(java_version, custom_runtime_dir.as_path()).await?;
     }
 

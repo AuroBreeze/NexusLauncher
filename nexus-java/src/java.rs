@@ -1,8 +1,8 @@
 // src/java.rs
 use futures_util::StreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
+use nexus_core::*;
 use nexus_version::AnyError;
-use nexus_version::utils::get_minecraft_dir;
 use regex::Regex;
 use std::env;
 use std::path::{Path, PathBuf};

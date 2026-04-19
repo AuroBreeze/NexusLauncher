@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+nexus-core = {path = "../nexus-core"}
+
 serde = {workspace = true}
 serde_json = {workspace = true}
 tracing = {workspace = true}
