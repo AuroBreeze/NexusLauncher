@@ -37,9 +37,60 @@ pub struct ModVersion {
 }
 
 #[derive(Deserialize, Debug)]
+pub struct ModVersionJson {
+    /// The name of this version
+    pub name: String,
+
+    /// A list of versions of Minecraft that this version supports
+    pub game_version: Vec<String>,
+
+    /// The release channel for the version
+    /// Allowed values: "release", "beta", "alpha"
+    pub version_type: String,
+
+    /// The mod loaders that this version supports. In case of resource packs, use “minecraft”
+    pub loaders: Vec<String>,
+
+    /// The ID of version
+    pub id: String,
+
+    /// The ID of the project this version is for
+    pub project_id: String,
+
+    /// The ID of the author who published this version
+    pub author_id: String,
+
+    pub date_publish: String,
+
+    /// The number of times this version has been downloaded
+    pub downloads: i32,
+
+    pub files: Vec<ModFile>,
+    pub dependencies: Vec<ModDependency>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Hashes {
+    pub sha1: String,
+    pub sha512: String,
+}
+
+#[derive(Deserialize, Debug)]
 pub struct ModFile {
+    pub hash: Hashes,
     pub url: String,
     pub filename: String,
+    pub primary: bool,
+    pub size: i32,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct ModDependency {
+    pub project_id: String,
+    pub version_id: String,
+    pub file_name: String,
+    /// Allowed values: "required", "optional", "incompatible", "embedded"
+    pub dependency_type: String,
 }
 
 pub async fn search_mods(query: &str, limit: i32) -> Result<SearchResult, AnyError> {
@@ -58,6 +109,23 @@ pub async fn search_mods(query: &str, limit: i32) -> Result<SearchResult, AnyErr
     tracing::info!("📦 Found {} mods matching your query", result.hits.len());
     tracing::info!("📦 Mod list: {:#?}", result.hits);
     Ok(result)
+}
+
+// AANobbMI
+pub async fn download_mod(id: &String) -> Result<Vec<ModVersion>, AnyError> {
+    let client = Client::new();
+    let _url = format!("https://api.modrinth.com/v2/version/{}/version", id);
+
+    let resp = client
+        .get(_url)
+        .header("User-Agent", "AuroBreeze/NexusLauncher/0.1.0")
+        .send()
+        .await?;
+
+    let result = resp.json::<Vec<ModVersionJson>>().await?;
+    tracing::info!("📦 Mod version: {:#?}", result);
+    unimplemented!()
+    // Ok(result)
 }
 
 #[cfg(test)]
@@ -90,5 +158,13 @@ mod tests {
             );
             assert!(!first_hit.title.is_empty(), "Title should not be empty");
         }
+    }
+
+    #[tokio::test]
+    async fn test_download_mods_real_network_return_200() {
+        let id = "AANobbMI".to_string();
+        let result = download_mod(&id).await;
+        dbg!(&result);
+        assert!(result.is_ok());
     }
 }

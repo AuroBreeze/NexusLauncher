@@ -133,7 +133,8 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
     tracing::info!("Nexus Launcher Starting...");
     // Print out the configuration we are using
 
-    let required_java_version = 17;
+    // TODO: Add the Java version from version.json for retrieval and use
+    let required_java_version = 25;
 
     // Load the launcher and user config
     let user_config = UserConfig::load().await;
@@ -246,7 +247,7 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
     let (username, uuid);
 
     // PERF: Optimize the code here
-    // TODO: Add the usercache.json file from the game instance and synchronize the game's access_token
+    // TODO: Add the usercache.json file from the game instance and synchronize the game's access_token when the game launch in first time
     if let Some(offline) = args.offline {
         if offline {
             access_token = "offline_token".to_string();
