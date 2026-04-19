@@ -1,0 +1,19 @@
+name: Commit Lint
+
+on:
+  pull_request:
+    types: [opened, edited, synchronized]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Commit Lint Script
+        run: |
+          chmod +x scripts/check_commits.sh
+          # Compare PR branch with the base branch
+          ./scripts/check_commits.sh origin/${{ github.event.pull_request.base.ref }}
