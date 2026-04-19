@@ -8,7 +8,7 @@ members = [
     "nexus-main",
     "nexus-cli",
     "nexus-auth",
-    "nexus-config", 
+    "nexus-config",
     "nexus-version",
     "nexus-java",
     "nexus-launch",

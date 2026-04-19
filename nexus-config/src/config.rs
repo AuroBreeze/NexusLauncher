@@ -5,6 +5,8 @@ use tokio::fs;
 
 pub trait Config: Serialize + DeserializeOwned + Default {
     fn get_config_path() -> PathBuf;
+
+    #[allow(async_fn_in_trait)]
     async fn load() -> Self {
         let path = Self::get_config_path();
         if path.exists()
@@ -30,6 +32,7 @@ pub trait Config: Serialize + DeserializeOwned + Default {
     }
 
     /// Saves the current configuration to disk as a TOML file.
+    #[allow(async_fn_in_trait)]
     async fn save(&self) -> Result<(), AnyError> {
         let path = Self::get_config_path();
         // Create a temporary file

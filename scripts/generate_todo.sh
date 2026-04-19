@@ -22,12 +22,12 @@ EOF
 git ls-files --cached --others --exclude-standard | \
     grep -vE "CONTRIBUTING.md|LICENSE|README.md|README_en.md" | \
     xargs grep -nE "$KEYWORDS" /dev/null 2>/dev/null | while read -r line; do
-    
+
     # Parse grep output (format: file:line:text)
     file=$(echo "$line" | cut -d: -f1)
     lnum=$(echo "$line" | cut -d: -f2)
     text=$(echo "$line" | cut -d: -f3-)
-    
+
     # Skip the todo_list.md itself and the generation script to avoid self-referencing
     if [[ "$file" == "$OUTPUT_FILE" || "$file" == "scripts/generate_todo.sh" ]]; then
         continue
@@ -35,7 +35,7 @@ git ls-files --cached --others --exclude-standard | \
 
     # Clean up whitespace and comment markers (//, #, /*, *) from text
     text=$(echo "$text" | sed 's/^[ \t\/*#]*//;s/[ \t\/*#]*$//')
-    
+
     # Append to markdown file
     echo "- [ ] **$file:$lnum** - $text" >> "$OUTPUT_FILE"
 done

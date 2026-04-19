@@ -22,10 +22,10 @@ jobs:
         run: |
           # Get the PR author's email to exclude them
           AUTHOR_EMAIL=$(git log -1 --pretty=format:'%ae')
-          
+
           # Find top contributors excluding author
           REVIEWERS=$(./scripts/get_reviewers.sh origin/main "$AUTHOR_EMAIL")
-          
+
           # If no one found (e.g., first contributor), fallback to repo owner
           if [ -z "$REVIEWERS" ]; then
             REVIEWERS="${{ github.repository_owner }}"
@@ -33,7 +33,7 @@ jobs:
           else
             echo "fallback=false" >> $GITHUB_OUTPUT
           fi
-          
+
           echo "list=$REVIEWERS" >> $GITHUB_OUTPUT
           echo "Selected: $REVIEWERS"
 
@@ -43,14 +43,14 @@ jobs:
         run: |
           # Convert comma list to @mentions
           CC_LIST=$(echo "${{ steps.people.outputs.list }}" | sed 's/,/ @/g' | sed 's/^/@/')
-          
+
           # Post a comment. Mentions work even without write permissions.
           if [ "${{ steps.people.outputs.fallback }}" == "true" ]; then
             MSG="Welcome! As you are a new contributor or the first to touch these files, I've notified the project owner $CC_LIST to take a look."
           else
             MSG="CC: $CC_LIST - you have contributed to these files before. Your feedback is welcome!"
           fi
-          
+
           gh pr comment ${{ github.event.pull_request.number }} --body "$MSG"
 
       - name: Official Reviewer Assignment

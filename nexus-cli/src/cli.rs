@@ -103,7 +103,7 @@ pub struct ModArgs {
     #[arg(
         short,
         long,
-        default_value = "5", 
+        default_value = "5",
         value_parser = clap::value_parser!(i32).range(1..=10),
         help = "The maximum number is 10"
     )]

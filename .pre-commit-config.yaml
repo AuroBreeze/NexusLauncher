@@ -1,0 +1,45 @@
+# .pre-commit-config.yaml
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+    -   id: trailing-whitespace
+    -   id: end-of-file-fixer
+    -   id: check-yaml
+    -   id: check-added-large-files
+
+-   repo: local
+    hooks:
+    -   id: cargo-fmt
+        name: cargo fmt
+        description: Check Rust code formatting
+        entry: cargo fmt --all -- --check
+        language: system
+        files: \.rs$
+        pass_filenames: false
+
+    -   id: cargo-clippy
+        name: cargo clippy
+        description: Run clippy lints
+        entry: cargo clippy --all-targets --all-features -- -D warnings
+        language: system
+        files: \.rs$
+        pass_filenames: false
+
+    -   id: generate-todo
+        name: update todo list
+        description: Update todo_list.md automatically and stage it
+        entry: bash -c "scripts/generate_todo.sh && git add todo_list.md"
+        language: system
+        pass_filenames: false
+        always_run: true
+
+    -   id: commit-msg-lint
+        name: commit message lint
+        description: Check if commit message follows conventional commits
+        entry: scripts/check_commits.sh HEAD
+        language: script
+        stages: [commit-msg]
