@@ -7,35 +7,41 @@
 BASE_BRANCH=${1:-origin/main}
 
 # Conventional Commits Regex
-# Type: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
 REGEXP="^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?!?: .+$"
 
 echo "Checking commit messages between $BASE_BRANCH and HEAD..."
 
 # Get all commit messages in the current branch that are not in the base branch
-# --no-merges to skip merge commits
-commits=$(git log $BASE_BRANCH..HEAD --no-merges --format=%s)
+# We use a process substitution to read each line safely
+mapfile -t commits < <(git log "$BASE_BRANCH..HEAD" --no-merges --format=%s)
 
-if [ -z "$commits" ]; then
+if [ ${#commits[@]} -eq 0 ]; then
     echo "No new commits found to check."
     exit 0
 fi
 
-FAILED=0
-while IFS= read -r msg; do
+FAILED_COUNT=0
+TOTAL_COUNT=${#commits[@]}
+
+echo "Found $TOTAL_COUNT commit(s) to validate."
+echo "--------------------------------------"
+
+for msg in "${commits[@]}"; do
     if [[ ! $msg =~ $REGEXP ]]; then
-        echo -e "\033[0;31mInvalid commit message: \"$msg\"\033[0m"
-        FAILED=1
+        echo -e "\033[0;31m[FAIL] \"$msg\"\033[0m"
+        FAILED_COUNT=$((FAILED_COUNT + 1))
     else
-        echo -e "\033[0;32mValid commit message: \"$msg\"\033[0m"
+        echo -e "\033[0;32m[PASS] \"$msg\"\033[0m"
     fi
-done <<< "$commits"
+done
 
-if [ $FAILED -eq 1 ]; then
-    echo -e "\n\033[0;31mError: Some commit messages do not follow the convention.\033[0m"
+echo "--------------------------------------"
+if [ $FAILED_COUNT -gt 0 ]; then
+    echo -e "\033[0;31mError: $FAILED_COUNT of $TOTAL_COUNT commit message(s) failed validation.\033[0m"
     echo "Expected format: <type>(optional scope): <description>"
-    echo "Examples: feat: add auth, fix(ui): fix button alignment, docs: update readme"
+    echo "Example types: feat, fix, docs, refactor, chore, etc."
     exit 1
+else
+    echo -e "\033[0;32mAll $TOTAL_COUNT commit message(s) are valid!\033[0m"
+    exit 0
 fi
-
-echo -e "\n\033[0;32mAll commit messages are valid!\033[0m"
