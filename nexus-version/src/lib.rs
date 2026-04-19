@@ -9,7 +9,7 @@ use crate::download::download_and_verify;
 use crate::models::VersionDetail;
 use crate::source::{download_assets, download_libraries};
 
-pub type AnyError = Box<dyn std::error::Error + Send + Sync>;
+use nexus_core::AnyError;
 
 // TODO: Migrate Code
 pub async fn verify_game_integrity(game_path: &Path) -> Result<(), AnyError> {

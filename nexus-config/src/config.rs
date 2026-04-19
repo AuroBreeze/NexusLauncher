@@ -1,4 +1,4 @@
-use nexus_version::AnyError;
+use nexus_core::AnyError;
 use serde::{Serialize, de::DeserializeOwned};
 use std::path::PathBuf;
 use tokio::fs;

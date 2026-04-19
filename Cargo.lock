@@ -1183,6 +1183,7 @@ name = "nexus-mods"
 version = "0.1.0"
 dependencies = [
  "nexus-cli",
+ "nexus-core",
  "nexus-version",
  "reqwest",
  "serde",

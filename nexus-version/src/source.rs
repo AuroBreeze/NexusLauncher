@@ -1,6 +1,6 @@
-use super::AnyError;
 use super::download::{DownloadTask, download_and_verify, execute_downloads};
 use super::models::{AssetIndexManifest, VersionDetail, VersionManifest};
+use nexus_core::AnyError;
 use std::path::PathBuf;
 
 /// obtain_manifest

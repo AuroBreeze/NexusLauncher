@@ -2,6 +2,8 @@ use home::home_dir;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+pub type AnyError = Box<dyn std::error::Error + Send + Sync>;
+
 pub fn get_minecraft_dir() -> PathBuf {
     let mut path = home_dir().expect("Could not get home dir");
     path.push(".minecraft");

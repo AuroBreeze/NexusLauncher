@@ -7,7 +7,7 @@ use crate::utils::*;
 use nexus_cli::cli::AuthArgs;
 use nexus_config::config::Config;
 use nexus_config::models::UserConfig;
-use nexus_version::AnyError;
+use nexus_core::AnyError;
 
 pub async fn handle_auth(args: &AuthArgs) -> Result<(), AnyError> {
     if args.login {

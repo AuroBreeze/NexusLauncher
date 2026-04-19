@@ -1,6 +1,6 @@
 use super::models::{FabricLoaderResponse, FabricProfile};
+use nexus_core::AnyError;
 use nexus_core::*;
-use nexus_version::AnyError;
 use nexus_version::download::pool_download_and_link;
 use serde_json::Value;
 use std::path::PathBuf;

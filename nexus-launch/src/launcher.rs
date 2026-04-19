@@ -1,6 +1,6 @@
 use crate::models::LaunchContext;
+use nexus_core::AnyError;
 use nexus_core::{self, get_minecraft_dir, maven_to_path};
-use nexus_version::AnyError;
 use std::process::Command;
 
 pub fn start_game(launch_context: LaunchContext) -> Result<(), AnyError> {

@@ -1,5 +1,4 @@
-// src/mod_manager.rs
-use nexus_version::AnyError;
+use nexus_core::AnyError;
 use reqwest::Client;
 use serde::Deserialize;
 

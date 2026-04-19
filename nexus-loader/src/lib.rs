@@ -3,7 +3,7 @@ pub mod models;
 
 use crate::fabric::{get_fabric_profile, get_latest_loader, install_fabric_libraries};
 use nexus_cli::cli::LoaderArgs;
-use nexus_version::AnyError;
+use nexus_core::AnyError;
 use std::path::PathBuf;
 
 // TODO: will be implemented

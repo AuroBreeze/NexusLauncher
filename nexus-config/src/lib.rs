@@ -6,7 +6,7 @@ pub mod userconfig;
 use crate::config::Config;
 use crate::models::{LaunchConfig, UserConfig};
 use nexus_cli::cli::SetArgs;
-use nexus_version::AnyError;
+use nexus_core::AnyError;
 
 pub async fn handle_set(args: &SetArgs) -> Result<(), AnyError> {
     let mut config = UserConfig::load().await;

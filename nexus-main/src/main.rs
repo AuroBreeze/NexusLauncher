@@ -23,7 +23,6 @@ use nexus_mods::handle_mods;
 
 use nexus_core::*;
 
-use nexus_version::AnyError;
 use nexus_version::download::download_and_verify;
 use nexus_version::models::VersionDetail;
 use nexus_version::source::{

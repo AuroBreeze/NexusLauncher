@@ -1,6 +1,6 @@
 use super::models::{CLIENT_ID, DeviceCodeResponse, MicrosoftToken};
 use crate::storage::{get_refresh_token, save_refresh_token};
-use nexus_version::AnyError;
+use nexus_core::AnyError;
 use reqwest::Client;
 
 pub async fn get_device_code() -> Result<DeviceCodeResponse, AnyError> {
