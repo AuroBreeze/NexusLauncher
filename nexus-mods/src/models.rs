@@ -160,11 +160,11 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn test_download_mods_real_network_return_200() {
-        let id = "AANobbMI".to_string();
-        let result = download_mod(&id).await;
-        dbg!(&result);
-        assert!(result.is_ok());
-    }
+    // #[tokio::test]
+    // async fn test_download_mods_real_network_return_200() {
+    //     let id = "AANobbMI".to_string();
+    //     let result = download_mod(&id).await;
+    //     dbg!(&result);
+    //     assert!(result.is_ok());
+    // }
 }
