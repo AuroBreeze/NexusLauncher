@@ -15,27 +15,21 @@ repos:
     hooks:
     -   id: cargo-fmt
         name: cargo fmt
-        description: Check Rust code formatting
+        description: Check Rust code formatting (fast)
         entry: cargo fmt --all -- --check
         language: system
         files: \.rs$
         pass_filenames: false
 
-    -   id: cargo-clippy
-        name: cargo clippy
-        description: Run clippy lints
-        entry: cargo clippy --all-targets --all-features -- -D warnings
-        language: system
-        files: \.rs$
-        pass_filenames: false
+    # We removed heavy cargo-clippy from pre-commit to keep it fast.
+    # Please run ./scripts/check.sh manually before pushing!
 
     -   id: generate-todo
         name: update todo list
-        description: Update todo_list.md automatically and stage it
+        description: Update todo_list.md automatically and stage it (fast)
         entry: bash -c "scripts/generate_todo.sh && git add todo_list.md"
         language: system
         pass_filenames: false
-        always_run: true
 
     -   id: commit-msg-lint
         name: commit message lint
@@ -43,3 +37,11 @@ repos:
         entry: scripts/check_commits.sh HEAD
         language: script
         stages: [commit-msg]
+
+    -   id: pre-push-check
+        name: full pre-push check
+        description: Run full check.sh before pushing
+        entry: scripts/check.sh
+        language: script
+        pass_filenames: false
+        stages: [push]

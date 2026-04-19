@@ -29,6 +29,7 @@ fi
 echo "Installing pre-commit hooks..."
 pre-commit install
 pre-commit install --hook-type commit-msg
+pre-commit install --hook-type pre-push
 
-echo -e "\033[0;32mSuccess! pre-commit hooks are now active.\033[0m"
+echo -e "\033[0;32mSuccess! pre-commit (commit, commit-msg, push) hooks are now active.\033[0m"
 echo "You can manually run all checks on all files using: pre-commit run --all-files"
