@@ -7,6 +7,9 @@ on:
 jobs:
   auto-reviewer:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
     if: github.event.pull_request.base.ref == 'main'
     steps:
       - name: Checkout code
