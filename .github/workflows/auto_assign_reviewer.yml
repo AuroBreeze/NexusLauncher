@@ -1,0 +1,59 @@
+name: Auto Review & CC
+
+on:
+  pull_request:
+    types: [opened, ready_for_review, synchronized]
+
+jobs:
+  auto-reviewer:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.base.ref == 'main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Identify Relevant People
+        id: people
+        run: |
+          # Get the PR author's email to exclude them
+          AUTHOR_EMAIL=$(git log -1 --pretty=format:'%ae')
+          
+          # Find top contributors excluding author
+          REVIEWERS=$(./scripts/get_reviewers.sh origin/main "$AUTHOR_EMAIL")
+          
+          # If no one found (e.g., first contributor), fallback to repo owner
+          if [ -z "$REVIEWERS" ]; then
+            REVIEWERS="${{ github.repository_owner }}"
+            echo "fallback=true" >> $GITHUB_OUTPUT
+          else
+            echo "fallback=false" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "list=$REVIEWERS" >> $GITHUB_OUTPUT
+          echo "Selected: $REVIEWERS"
+
+      - name: Post CC Comment (Linux Style)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Convert comma list to @mentions
+          CC_LIST=$(echo "${{ steps.people.outputs.list }}" | sed 's/,/ @/g' | sed 's/^/@/')
+          
+          # Post a comment. Mentions work even without write permissions.
+          if [ "${{ steps.people.outputs.fallback }}" == "true" ]; then
+            MSG="Welcome! As you are a new contributor or the first to touch these files, I've notified the project owner $CC_LIST to take a look."
+          else
+            MSG="CC: $CC_LIST - you have contributed to these files before. Your feedback is welcome!"
+          fi
+          
+          gh pr comment ${{ github.event.pull_request.number }} --body "$MSG"
+
+      - name: Official Reviewer Assignment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Attempt to assign officially. This might fail for users without write access,
+          # so we use '|| true' to let the workflow continue.
+          gh pr edit ${{ github.event.pull_request.number }} --add-reviewer "${{ steps.people.outputs.list }}" || echo "Some reviewers could not be assigned officially due to permission limits, but they have been CC'd in the comments."
