@@ -7,7 +7,6 @@ edition = "2024"
 nexus-core = {path = "../nexus-core"}
 nexus-version = {path = "../nexus-version"}
 nexus-cli = {path = "../nexus-cli"}
-nexus-java = {path = "../nexus-java"}
 
 serde = {workspace = true}
 tokio = {workspace = true}
