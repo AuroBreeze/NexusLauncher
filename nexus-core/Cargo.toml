@@ -7,3 +7,4 @@ edition = "2024"
 home = {workspace = true}
 tracing = {workspace = true}
 regex = {workspace = true}
+tokio =  {workspace = true}

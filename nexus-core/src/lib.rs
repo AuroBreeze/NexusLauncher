@@ -2,7 +2,10 @@ use home::home_dir;
 use regex::Regex;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::sync::OnceLock;
+use tokio::process::Command;
+
+static JAVA_VERSION_RE: OnceLock<Regex> = OnceLock::new();
 
 pub type AnyError = Box<dyn std::error::Error + Send + Sync>;
 
@@ -106,13 +109,17 @@ fn parse_major_version(version_str: &str) -> Option<u32> {
 /// Test the specified Java path and extract version information
 pub async fn check_java_executable(java_path: &Path) -> Option<JavaInfo> {
     // Run java -version silently
-    let output = Command::new(java_path).arg("-version").output().ok()?;
+    let output = Command::new(java_path)
+        .arg("-version")
+        .output()
+        .await
+        .ok()?;
 
     // Java's version information is always output to stderr
     let stderr = String::from_utf8_lossy(&output.stderr);
 
     // Match something like: openjdk version "17.0.8" 2023-07-18
-    let re = Regex::new(r#"version "([^"]+)""#).unwrap();
+    let re = JAVA_VERSION_RE.get_or_init(|| Regex::new(r#"version "([^"]+)""#).unwrap());
 
     if let Some(caps) = re.captures(&stderr) {
         let full_version = caps[1].to_string();
