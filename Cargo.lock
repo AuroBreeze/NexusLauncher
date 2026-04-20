@@ -1100,7 +1100,6 @@ version = "0.1.0"
 dependencies = [
  "nexus-cli",
  "nexus-core",
- "nexus-java",
  "nexus-version",
  "serde",
  "tokio",
@@ -1113,6 +1112,8 @@ name = "nexus-core"
 version = "0.1.0"
 dependencies = [
  "home",
+ "regex",
+ "tokio",
  "tracing",
 ]
 
@@ -1123,6 +1124,8 @@ dependencies = [
  "flate2",
  "futures-util",
  "indicatif",
+ "nexus-cli",
+ "nexus-config",
  "nexus-core",
  "nexus-version",
  "regex",

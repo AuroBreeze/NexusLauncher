@@ -6,6 +6,8 @@ edition = "2024"
 [dependencies]
 nexus-core = {path = "../nexus-core"}
 nexus-version = {path = "../nexus-version"}
+nexus-cli = {path = "../nexus-cli"}
+nexus-config = {path = "../nexus-config"}
 
 futures-util = {workspace = true}
 indicatif = {workspace = true}
