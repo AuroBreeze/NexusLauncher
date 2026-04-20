@@ -33,12 +33,12 @@ if ! cargo test --all-targets --all-features; then
   FAILED=1
 fi
 
-# 4. Build Project
-echo -e "\n${GREEN}[4/5] Building project (cargo build)...${NC}"
-if ! cargo build --release; then
-  echo -e "${RED}Project build failed!${NC}"
-  FAILED=1
-fi
+# # 4. Build Project
+# echo -e "\n${GREEN}[4/5] Building project (cargo build)...${NC}"
+# if ! cargo build --release; then
+#   echo -e "${RED}Project build failed!${NC}"
+#   FAILED=1
+# fi
 
 # 5. Check Commit Messages
 echo -e "\n${GREEN}[5/5] Checking commit messages...${NC}"

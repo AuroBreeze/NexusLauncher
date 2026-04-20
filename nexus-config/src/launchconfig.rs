@@ -25,7 +25,7 @@ impl LaunchConfig {
         if let Some(path) = self.java_paths.get(&major_version) {
             // Instead of checking is_file(), we execute it to verify.
             // This perfectly handles system PATH commands like "java" and absolute paths.
-            // FIX: Due to a circular dependency, `check_java_executable` had to be moved into the core library, resulting in the fragmentation of the Java library's functionality. This issue has been resolved.
+            // FIXME: Due to a circular dependency, `check_java_executable` had to be moved into the core library, resulting in the fragmentation of the Java library's functionality. This issue has been resolved.
             if let Some(info) = check_java_executable(path).await {
                 // Double check if the major version still matches
                 // (in case the user updated their system "java" environment variable)
