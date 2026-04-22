@@ -27,7 +27,7 @@ EOF
 
 # Scan all tracked files (respecting .gitignore) excluding docs
 git ls-files --cached --others --exclude-standard |
-  grep -vE "CONTRIBUTING.md|LICENSE|README.md|README_en.md|todo_list.md" |
+  grep -vE "CONTRIBUTING.md|LICENSE|README.md|README_en.md|todo_list.md|^scripts/" |
   xargs grep -nE "$KEYWORDS" /dev/null 2>/dev/null | while read -r line; do
 
   file=$(echo "$line" | cut -d: -f1)
