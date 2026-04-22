@@ -134,15 +134,86 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
     tracing::info!("Nexus Launcher Starting...");
     // Print out the configuration we are using
 
-    // TODO: Add the Java version from version.json for retrieval and use
-    let required_java_version = 25;
-
     // Load the launcher and user config
     let user_config = UserConfig::load().await;
     let mut launcher_config = LaunchConfig::load().await;
 
     #[allow(unused_assignments)]
     let mut final_java_executable: Option<PathBuf> = None;
+
+    // Identity and Access Token Handling
+    let access_token;
+    let (username, uuid);
+
+    // PERF: Optimize the code here
+    // TODO: Add the usercache.json file from the game instance and synchronize the game's access_token when the game launch in first time
+    if let Some(offline) = args.offline {
+        if offline {
+            access_token = "offline_token".to_string();
+            username = if user_config.user_profile.offline.username.is_empty() {
+                "Default".to_string()
+            } else {
+                user_config.user_profile.offline.username.clone()
+            };
+
+            uuid = if user_config.user_profile.offline.uuid.is_empty() {
+                "offline".to_string()
+            } else {
+                user_config.user_profile.offline.uuid.clone()
+            };
+
+            tracing::info!("Mode: Offline (User: {}, UUID: {})", username, uuid);
+        } else {
+            username = user_config.user_profile.online.username.clone();
+            uuid = user_config.user_profile.online.uuid.clone();
+            access_token = silent_login(&uuid).await?;
+            tracing::info!("Mode: Online (User: {})", username);
+        }
+    } else {
+        if launcher_config.offline {
+            access_token = "offline_token".to_string();
+            username = if user_config.user_profile.offline.username.is_empty() {
+                "Default".to_string()
+            } else {
+                user_config.user_profile.offline.username.clone()
+            };
+
+            uuid = if user_config.user_profile.offline.uuid.is_empty() {
+                "offline".to_string()
+            } else {
+                user_config.user_profile.offline.uuid.clone()
+            };
+
+            tracing::info!("Mode: Offline (User: {}, UUID: {})", username, uuid);
+        } else {
+            username = user_config.user_profile.online.username.clone();
+            uuid = user_config.user_profile.online.uuid.clone();
+            access_token = silent_login(&uuid).await?;
+            tracing::info!("Mode: Online (User: {})", username);
+        }
+    }
+
+    let game_path = &get_clients_dir().join(&args.instance_name);
+    let game_version_json_path = game_path.join("version.json");
+
+    // 1. Convert the initial Result to Option using .ok()
+    // 2. Use .flatten() if find_fabric_json returns Result<Option<P>, E>
+    let fabric_profile = find_fabric_json(game_path)
+        .ok() // Result -> Option<Option<PathBuf>> (based on your first snippet)
+        .flatten() // Option<Option<PathBuf>> -> Option<PathBuf>
+        .and_then(|path| std::fs::read_to_string(path).ok()) // Try read file
+        .and_then(|data| serde_json::from_str::<FabricProfile>(&data).ok()); // Try parse JSON
+    // dbg!(&fabric_profile);
+
+    let data = std::fs::read_to_string(game_version_json_path).unwrap();
+    let detail: VersionDetail = serde_json::from_str(&data).unwrap();
+    let version_id = detail.id;
+    let required_java_version = detail.java_version.major_version as u32;
+    let client_jar_path = get_clients_dir()
+        .join(&args.instance_name)
+        .join(format!("{}.jar", &version_id));
+
+    verify_game_integrity(game_path).await?;
 
     // Check if we already have a valid cached path for this version
     // PERF: The code for locating, saving, and downloading Java files, as well as the code for launching the game, should remain concise. Move the code to `java.rs` and reuse it.
@@ -242,79 +313,6 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
             final_java_executable = Some(verified_path);
         }
     }
-
-    // Identity and Access Token Handling
-    let access_token;
-    let (username, uuid);
-
-    // PERF: Optimize the code here
-    // TODO: Add the usercache.json file from the game instance and synchronize the game's access_token when the game launch in first time
-    if let Some(offline) = args.offline {
-        if offline {
-            access_token = "offline_token".to_string();
-            username = if user_config.user_profile.offline.username.is_empty() {
-                "Default".to_string()
-            } else {
-                user_config.user_profile.offline.username.clone()
-            };
-
-            uuid = if user_config.user_profile.offline.uuid.is_empty() {
-                "offline".to_string()
-            } else {
-                user_config.user_profile.offline.uuid.clone()
-            };
-
-            tracing::info!("Mode: Offline (User: {}, UUID: {})", username, uuid);
-        } else {
-            username = user_config.user_profile.online.username.clone();
-            uuid = user_config.user_profile.online.uuid.clone();
-            access_token = silent_login(&uuid).await?;
-            tracing::info!("Mode: Online (User: {})", username);
-        }
-    } else {
-        if launcher_config.offline {
-            access_token = "offline_token".to_string();
-            username = if user_config.user_profile.offline.username.is_empty() {
-                "Default".to_string()
-            } else {
-                user_config.user_profile.offline.username.clone()
-            };
-
-            uuid = if user_config.user_profile.offline.uuid.is_empty() {
-                "offline".to_string()
-            } else {
-                user_config.user_profile.offline.uuid.clone()
-            };
-
-            tracing::info!("Mode: Offline (User: {}, UUID: {})", username, uuid);
-        } else {
-            username = user_config.user_profile.online.username.clone();
-            uuid = user_config.user_profile.online.uuid.clone();
-            access_token = silent_login(&uuid).await?;
-            tracing::info!("Mode: Online (User: {})", username);
-        }
-    }
-
-    let game_path = &get_clients_dir().join(&args.instance_name);
-    let game_version_json_path = game_path.join("version.json");
-
-    // 1. Convert the initial Result to Option using .ok()
-    // 2. Use .flatten() if find_fabric_json returns Result<Option<P>, E>
-    let fabric_profile = find_fabric_json(game_path)
-        .ok() // Result -> Option<Option<PathBuf>> (based on your first snippet)
-        .flatten() // Option<Option<PathBuf>> -> Option<PathBuf>
-        .and_then(|path| std::fs::read_to_string(path).ok()) // Try read file
-        .and_then(|data| serde_json::from_str::<FabricProfile>(&data).ok()); // Try parse JSON
-    // dbg!(&fabric_profile);
-
-    let data = std::fs::read_to_string(game_version_json_path).unwrap();
-    let detail: VersionDetail = serde_json::from_str(&data).unwrap();
-    let version_id = detail.id;
-    let client_jar_path = get_clients_dir()
-        .join(&args.instance_name)
-        .join(format!("{}.jar", &version_id));
-
-    verify_game_integrity(game_path).await?;
 
     // TODO: Optimize LaunchContext by removing duplicate components from the assembly, such as client_core_jar, and use game_path for assembly at the start_game stage.
     //
