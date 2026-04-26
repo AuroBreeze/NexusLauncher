@@ -92,7 +92,9 @@ pub struct ModDependency {
     pub dependency_type: String,
 }
 
-pub async fn search_mods(query: &str, limit: i32) -> Result<SearchResult, AnyError> {
+// link: https://docs.modrinth.com/api/operations/searchprojects/
+// TODO: Make `limit` optional, and add requests for `feature` and `index`
+pub async fn search_project(query: &str, limit: i32) -> Result<SearchResult, AnyError> {
     let client = Client::new();
     let url = format!(
         "https://api.modrinth.com/v2/search?query={}&limit={}",
@@ -110,10 +112,24 @@ pub async fn search_mods(query: &str, limit: i32) -> Result<SearchResult, AnyErr
     Ok(result)
 }
 
-// AANobbMI
-pub async fn download_mod(id: &String) -> Result<Vec<ModVersion>, AnyError> {
+// link: https://docs.modrinth.com/api/operations/getproject/
+// TODO: Will be implemented
+pub async fn get_version(_id: &String) {
+    unimplemented!()
+}
+
+// link : https://docs.modrinth.com/api/operations/getprojectversions/
+// TODO: Will be implemented
+pub async fn get_project_versions(_id: &String) {
+    unimplemented!()
+}
+
+// link: https://docs.modrinth.com/api/operations/getversion/
+// SIrB5bCM
+// TODO: Will be implemented
+pub async fn download_mod(id: &String) -> Result<Vec<ModVersionJson>, AnyError> {
     let client = Client::new();
-    let _url = format!("https://api.modrinth.com/v2/version/{}/version", id);
+    let _url = format!("https://api.modrinth.com/v2/version/{}", id);
 
     let resp = client
         .get(_url)
@@ -123,8 +139,9 @@ pub async fn download_mod(id: &String) -> Result<Vec<ModVersion>, AnyError> {
 
     let result = resp.json::<Vec<ModVersionJson>>().await?;
     tracing::info!("📦 Mod version: {:#?}", result);
-    unimplemented!()
+    // unimplemented!()
     // Ok(result)
+    Ok(result)
 }
 
 #[cfg(test)]
@@ -138,7 +155,7 @@ mod tests {
         let limit = 3;
 
         // Call the function
-        let result = search_mods(query, limit).await;
+        let result = search_project(query, limit).await;
 
         // Ensure the request was successful
         assert!(result.is_ok(), "Failed to fetch from Modrinth API");
