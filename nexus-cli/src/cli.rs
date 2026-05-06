@@ -142,8 +142,6 @@ pub struct SetArgs {
 
 #[derive(Args)]
 pub struct LaunchArgs {
-    // TODO: The game version download has been moved to the `install` command; replace `game_version` here with the folder where the game is located.
-    // Rename and update the names in other places as well
     /// The instance to launch
     pub instance_name: String,
 

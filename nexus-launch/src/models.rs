@@ -5,7 +5,6 @@ use nexus_loader::models::FabricProfile;
 
 #[derive(Debug, Clone, Default)]
 pub struct LaunchContext {
-    // TODO: The game no longer relies on version numbers to launch; instead, it uses the folder name.
     pub game_path: PathBuf,
     pub version_id: String,         // such as "1.20.1-fabric"
     pub java_path: Option<PathBuf>, // Path to the verified Java executable file
