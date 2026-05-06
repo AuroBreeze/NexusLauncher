@@ -12,6 +12,7 @@ nexus-config = {path = "../nexus-config"}
 futures-util = {workspace = true}
 indicatif = {workspace = true}
 regex = {workspace = true}
+walkdir = {workspace = true}
 tokio = {workspace = true}
 tracing = {workspace = true}
 tar = {workspace = true}

@@ -11,7 +11,7 @@ use nexus_config::handle_set;
 use nexus_config::models::{LaunchConfig, UserConfig};
 
 use nexus_java::handle_java;
-use nexus_java::java::{download_java, scan_local_java_environments};
+use nexus_java::java::resolve_java_executable;
 
 use nexus_launch::launcher::start_game;
 use nexus_launch::models::{LaunchContext, UserContext};
@@ -138,9 +138,6 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
     let user_config = UserConfig::load().await;
     let mut launcher_config = LaunchConfig::load().await;
 
-    #[allow(unused_assignments)]
-    let mut final_java_executable: Option<PathBuf> = None;
-
     // Identity and Access Token Handling
     let access_token;
     let (username, uuid);
@@ -215,104 +212,9 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
 
     verify_game_integrity(game_path).await?;
 
-    // Check if we already have a valid cached path for this version
-    // PERF: The code for locating, saving, and downloading Java files, as well as the code for launching the game, should remain concise. Move the code to `java.rs` and reuse it.
-    if let Some(cached_path) = launcher_config.get_valid_java(required_java_version).await
-        && !args.force_scan
-    {
-        tracing::info!(
-            "Using cached Java {}: {}",
-            required_java_version,
-            cached_path.display()
-        );
-        final_java_executable = Some(cached_path);
-    } else {
-        tracing::info!(
-            "No valid cached Java {} found. Starting scan...",
-            required_java_version
-        );
-
-        // Scan local environments
-        let local_javas = scan_local_java_environments(None).await;
-
-        let mut found_path = None;
-        for j in local_javas {
-            tracing::info!(
-                "📦 Found Java {} (full version: {}) -> Path: {}",
-                j.major_version,
-                j.full_version,
-                j.path.display()
-            );
-
-            if j.major_version == required_java_version {
-                tracing::info!(
-                    "Found matching Java {}: {}",
-                    required_java_version,
-                    j.path.display()
-                );
-                found_path = Some(j.path);
-                break;
-            }
-        }
-
-        if found_path.is_none() {
-            tracing::warn!(
-                "Java {} not found locally. Initiating automatic download...",
-                required_java_version
-            );
-
-            // 1. Download and extract Java into the runtimes folder
-            let custom_runtime_dir = get_minecraft_dir().join("runtimes");
-            let new_java_dir = download_java(required_java_version, &custom_runtime_dir).await?;
-
-            // 2. Rescan the newly downloaded directory to dynamically find the exact bin/java path
-            let java_bin = if cfg!(target_os = "windows") {
-                "java.exe"
-            } else {
-                "java"
-            };
-
-            use walkdir::WalkDir;
-
-            let mut found = None;
-
-            for entry in WalkDir::new(&new_java_dir) {
-                let entry = entry?;
-                if entry.file_type().is_file() {
-                    let name = entry.file_name().to_string_lossy().to_lowercase();
-
-                    if name == java_bin {
-                        found = Some(entry.path().to_path_buf());
-                        break;
-                    }
-                }
-            }
-
-            if let Some(java_path) = found {
-                tracing::info!(
-                    "✅ Found downloaded Java {} at {}",
-                    required_java_version,
-                    java_path.display()
-                );
-                found_path = Some(java_path);
-            } else {
-                return Err(format!(
-                    "Java downloaded but executable not found in {:?}",
-                    new_java_dir
-                )
-                .into());
-            }
-        }
-
-        // Update the cache and save to the TOML file
-        if let Some(verified_path) = found_path {
-            launcher_config
-                .java_paths
-                .insert(required_java_version, verified_path.clone());
-            launcher_config.save().await?;
-            final_java_executable = Some(verified_path);
-        }
-    }
+    let final_java_executable =
+        resolve_java_executable(required_java_version, args.force_scan, &mut launcher_config)
+            .await?;
 
     // TODO: Optimize LaunchContext by removing duplicate components from the assembly, such as client_core_jar, and use game_path for assembly at the start_game stage.
     //
@@ -320,7 +222,7 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
     let launch_context = LaunchContext {
         game_path: PathBuf::from(game_path),
         version_id,
-        java_path: final_java_executable,
+        java_path: Some(final_java_executable),
         core_jar: client_jar_path,
         user: UserContext {
             username,

@@ -1,12 +1,15 @@
 // src/java.rs
 use futures_util::StreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
+use nexus_config::config::Config;
+use nexus_config::models::LaunchConfig;
 use nexus_core::AnyError;
 use nexus_core::*;
 use std::env;
 use std::path::{Path, PathBuf};
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
+use walkdir::WalkDir;
 
 /// Deep scans the specified directory looking for bin/java executables.
 async fn scan_jvm_directory(dir: &Path) -> Vec<JavaInfo> {
@@ -229,4 +232,106 @@ pub async fn download_java(major_version: u32, runtimes_dir: &Path) -> Result<Pa
     );
 
     Ok(target_dir)
+}
+
+/// Resolves a Java executable for the given major version.
+///
+/// Attempts cached path first, then scans local environments,
+/// and falls back to downloading. Updates the launcher config cache.
+pub async fn resolve_java_executable(
+    required_version: u32,
+    force_scan: bool,
+    launcher_config: &mut LaunchConfig,
+) -> Result<PathBuf, AnyError> {
+    // 1. Try cached path
+    if let Some(cached_path) = launcher_config.get_valid_java(required_version).await
+        && !force_scan
+    {
+        tracing::info!(
+            "Using cached Java {}: {}",
+            required_version,
+            cached_path.display()
+        );
+        return Ok(cached_path);
+    }
+
+    tracing::info!(
+        "No valid cached Java {} found. Starting scan...",
+        required_version
+    );
+
+    // 2. Scan local environments
+    let local_javas = scan_local_java_environments(None).await;
+    let mut found_path = None;
+
+    for j in local_javas {
+        tracing::info!(
+            "📦 Found Java {} (full version: {}) -> Path: {}",
+            j.major_version,
+            j.full_version,
+            j.path.display()
+        );
+
+        if j.major_version == required_version {
+            tracing::info!(
+                "Found matching Java {}: {}",
+                required_version,
+                j.path.display()
+            );
+            found_path = Some(j.path);
+            break;
+        }
+    }
+
+    // 3. Download if not found locally
+    if found_path.is_none() {
+        tracing::warn!(
+            "Java {} not found locally. Initiating automatic download...",
+            required_version
+        );
+
+        let custom_runtime_dir = get_minecraft_dir().join("runtimes");
+        let new_java_dir = download_java(required_version, &custom_runtime_dir).await?;
+
+        let java_bin = if cfg!(target_os = "windows") {
+            "java.exe"
+        } else {
+            "java"
+        };
+
+        for entry in WalkDir::new(&new_java_dir) {
+            let entry = entry?;
+            if entry.file_type().is_file() {
+                let name = entry.file_name().to_string_lossy().to_lowercase();
+                if name == java_bin {
+                    found_path = Some(entry.path().to_path_buf());
+                    break;
+                }
+            }
+        }
+
+        if let Some(ref java_path) = found_path {
+            tracing::info!(
+                "✅ Found downloaded Java {} at {}",
+                required_version,
+                java_path.display()
+            );
+        } else {
+            return Err(format!(
+                "Java downloaded but executable not found in {:?}",
+                new_java_dir
+            )
+            .into());
+        }
+    }
+
+    // 4. Update cache
+    if let Some(ref verified_path) = found_path {
+        launcher_config
+            .java_paths
+            .insert(required_version, verified_path.clone());
+        launcher_config.save().await?;
+    }
+
+    Ok(found_path.unwrap())
 }
