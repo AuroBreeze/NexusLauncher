@@ -1,6 +1,5 @@
-use clap::{Args, Parser, Subcommand, ValueEnum};
-use std::fmt::Display;
-use std::str::FromStr;
+use clap::{Args, Parser, Subcommand};
+use nexus_core::Loaders;
 
 #[derive(Parser)]
 #[command(name = "Nexus Launcher")]
@@ -121,37 +120,6 @@ pub struct ModArgs {
 // ==========================================
 // Enums & Other Arguments
 // ==========================================
-
-// PERF: Migrate code
-#[derive(Debug, Clone, ValueEnum)]
-pub enum Loaders {
-    Fabric,
-    Quilt,
-}
-
-impl FromStr for Loaders {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "fabric" => Ok(Loaders::Fabric),
-            "quilt" => Ok(Loaders::Quilt),
-            _ => Err(format!(
-                "Invalid loader: {}. Expected 'fabric' or 'quilt'",
-                s
-            )),
-        }
-    }
-}
-
-impl Display for Loaders {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Loaders::Fabric => write!(f, "fabric"),
-            Loaders::Quilt => write!(f, "quilt"),
-        }
-    }
-}
 
 #[derive(Args)]
 pub struct SetArgs {

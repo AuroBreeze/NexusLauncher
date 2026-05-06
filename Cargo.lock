@@ -1092,6 +1092,7 @@ name = "nexus-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "nexus-core",
 ]
 
 [[package]]
@@ -1111,6 +1112,7 @@ dependencies = [
 name = "nexus-core"
 version = "0.1.0"
 dependencies = [
+ "clap",
  "home",
  "regex",
  "tokio",

@@ -1,7 +1,8 @@
 use super::download::{DownloadTask, download_and_verify, execute_downloads};
 use super::models::{AssetIndexManifest, VersionDetail, VersionManifest};
 use nexus_core::AnyError;
-use std::path::PathBuf;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 /// obtain_manifest
 pub async fn obtain_manifest() -> Result<VersionManifest, AnyError> {
@@ -108,6 +109,37 @@ pub async fn download_assets(detail: &VersionDetail) -> Result<(), AnyError> {
         16,
         "All resource files are ready!",
     ).await?;
+
+    Ok(())
+}
+
+pub async fn verify_game_integrity(game_path: &Path) -> Result<(), AnyError> {
+    let game_version_json_path = game_path.join("version.json");
+    if !game_version_json_path.exists() {
+        return Err("Game version JSON not found".into());
+    }
+    let data = fs::read_to_string(game_version_json_path)?;
+    let detail: VersionDetail = serde_json::from_str(&data)?;
+
+    let target_version = &detail.id;
+
+    let client_jar_path = nexus_core::get_clients_dir()
+        .join(target_version)
+        .join(format!("{}.jar", target_version));
+
+    if !client_jar_path.exists() {
+        tracing::info!("Verifying core JAR file...");
+        download_and_verify(
+            &detail.downloads.client.url,
+            &client_jar_path,
+            detail.downloads.client.sha1.as_str(),
+        )
+        .await?;
+    }
+
+    download_libraries(&detail).await?;
+    download_assets(&detail).await?;
+    tracing::info!("Fetching version data for {}...", target_version);
 
     Ok(())
 }

@@ -1,13 +1,46 @@
+use clap::ValueEnum;
 use home::home_dir;
 use regex::Regex;
+use std::fmt::Display;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use std::sync::OnceLock;
 use tokio::process::Command;
 
 static JAVA_VERSION_RE: OnceLock<Regex> = OnceLock::new();
 
 pub type AnyError = Box<dyn std::error::Error + Send + Sync>;
+
+#[derive(Debug, Clone, ValueEnum)]
+pub enum Loaders {
+    Fabric,
+    Quilt,
+}
+
+impl FromStr for Loaders {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "fabric" => Ok(Loaders::Fabric),
+            "quilt" => Ok(Loaders::Quilt),
+            _ => Err(format!(
+                "Invalid loader: {}. Expected 'fabric' or 'quilt'",
+                s
+            )),
+        }
+    }
+}
+
+impl Display for Loaders {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Loaders::Fabric => write!(f, "fabric"),
+            Loaders::Quilt => write!(f, "quilt"),
+        }
+    }
+}
 
 pub fn get_minecraft_dir() -> PathBuf {
     let mut path = home_dir().expect("Could not get home dir");

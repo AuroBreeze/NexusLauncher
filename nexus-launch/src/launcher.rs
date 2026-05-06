@@ -1,7 +1,45 @@
 use crate::models::LaunchContext;
 use nexus_core::AnyError;
 use nexus_core::{self, get_minecraft_dir, maven_to_path};
+use nexus_loader::models::FabricProfile;
+use std::path::{Path, PathBuf};
 use std::process::Command;
+
+fn build_classpath(
+    libraries: &[PathBuf],
+    core_jar: &Path,
+    fabric_profile: Option<&FabricProfile>,
+    game_path: &Path,
+) -> (String, Option<String>) {
+    #[cfg(target_os = "windows")]
+    let sep = ";";
+    #[cfg(not(target_os = "windows"))]
+    let sep = ":";
+
+    let mut cp_paths: Vec<String> = libraries
+        .iter()
+        .map(|p| p.to_string_lossy().to_string())
+        .collect();
+
+    let fabric_main_class = if let Some(profile) = fabric_profile {
+        tracing::info!("Fabric profile found!");
+        for lib in &profile.libraries {
+            let relative_path = maven_to_path(&lib.name);
+            let full_path = game_path.join("objects").join(relative_path);
+            if full_path.exists() {
+                cp_paths.push(full_path.to_string_lossy().to_string());
+            } else {
+                tracing::warn!("Missing Fabric library: {:?}", full_path);
+            }
+        }
+        Some(profile.main_class.clone())
+    } else {
+        None
+    };
+
+    cp_paths.push(core_jar.to_string_lossy().to_string());
+    (cp_paths.join(sep), fabric_main_class)
+}
 
 pub fn start_game(launch_context: LaunchContext) -> Result<(), AnyError> {
     tracing::info!("Assembling startup parameters...");
@@ -14,51 +52,18 @@ pub fn start_game(launch_context: LaunchContext) -> Result<(), AnyError> {
 
     let mut cmd = Command::new(java_path);
 
-    // Build the Classpath
-    // PERF: Migrate the code and optimize the code structure
-    #[cfg(target_os = "windows")]
-    let sep = ";";
-    #[cfg(not(target_os = "windows"))]
-    let sep = ":";
+    let (classpath, fabric_main_class) = build_classpath(
+        &launch_context.libraries,
+        &launch_context.core_jar,
+        launch_context.fabric_loader.as_ref(),
+        &launch_context.game_path,
+    );
 
-    let mut cp_paths: Vec<String> = launch_context
-        .libraries
-        .iter()
-        .map(|p| p.to_string_lossy().to_string())
-        .collect();
-
-    // Determine Main Class and add Fabric libraries if needed
-    let final_main_class = if let Some(fabric_profile) = &launch_context.fabric_loader {
-        tracing::info!("Fabric profile found!");
-        let libs_base_dir = &launch_context.game_path;
-
-        for p in &fabric_profile.libraries {
-            let relative_path = maven_to_path(&p.name);
-            let full_path = libs_base_dir.join("objects").join(relative_path);
-
-            if full_path.exists() {
-                cp_paths.push(full_path.to_string_lossy().to_string());
-            } else {
-                tracing::warn!("Missing Fabric library: {:?}", full_path);
-            }
-        }
-        fabric_profile.main_class.clone()
-    } else {
-        launch_context.main_class.clone()
-    };
-
-    // Add the game's core jar
-    cp_paths.push(launch_context.core_jar.to_string_lossy().to_string());
-    let classpath = cp_paths.join(sep);
+    let final_main_class = fabric_main_class.unwrap_or(launch_context.main_class.clone());
 
     // Setup Directories
     let mc_dir = get_minecraft_dir();
     let assets_dir = mc_dir.join("assets");
-    // let version_isolated_dir = get_clients_dir().join(&launch_context.version_id);
-
-    // if !version_isolated_dir.exists() {
-    //     std::fs::create_dir_all(&version_isolated_dir)?;
-    // }
 
     // JVM Runtime Parameters (MUST be before Main Class)
     if let Some(max_memory) = launch_context.max_memory {
