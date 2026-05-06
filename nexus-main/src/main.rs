@@ -139,56 +139,29 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
     let mut launcher_config = LaunchConfig::load().await;
 
     // Identity and Access Token Handling
-    let access_token;
-    let (username, uuid);
-
-    // PERF: Optimize the code here
     // TODO: Add the usercache.json file from the game instance and synchronize the game's access_token when the game launch in first time
-    if let Some(offline) = args.offline {
-        if offline {
-            access_token = "offline_token".to_string();
-            username = if user_config.user_profile.offline.username.is_empty() {
-                "Default".to_string()
-            } else {
-                user_config.user_profile.offline.username.clone()
-            };
+    let is_offline = args.offline.unwrap_or(launcher_config.offline);
 
-            uuid = if user_config.user_profile.offline.uuid.is_empty() {
-                "offline".to_string()
-            } else {
-                user_config.user_profile.offline.uuid.clone()
-            };
-
-            tracing::info!("Mode: Offline (User: {}, UUID: {})", username, uuid);
+    let (access_token, username, uuid) = if is_offline {
+        let username = if user_config.user_profile.offline.username.is_empty() {
+            "Default".to_string()
         } else {
-            username = user_config.user_profile.online.username.clone();
-            uuid = user_config.user_profile.online.uuid.clone();
-            access_token = silent_login(&uuid).await?;
-            tracing::info!("Mode: Online (User: {})", username);
-        }
+            user_config.user_profile.offline.username.clone()
+        };
+        let uuid = if user_config.user_profile.offline.uuid.is_empty() {
+            "offline".to_string()
+        } else {
+            user_config.user_profile.offline.uuid.clone()
+        };
+        tracing::info!("Mode: Offline (User: {}, UUID: {})", username, uuid);
+        ("offline_token".to_string(), username, uuid)
     } else {
-        if launcher_config.offline {
-            access_token = "offline_token".to_string();
-            username = if user_config.user_profile.offline.username.is_empty() {
-                "Default".to_string()
-            } else {
-                user_config.user_profile.offline.username.clone()
-            };
-
-            uuid = if user_config.user_profile.offline.uuid.is_empty() {
-                "offline".to_string()
-            } else {
-                user_config.user_profile.offline.uuid.clone()
-            };
-
-            tracing::info!("Mode: Offline (User: {}, UUID: {})", username, uuid);
-        } else {
-            username = user_config.user_profile.online.username.clone();
-            uuid = user_config.user_profile.online.uuid.clone();
-            access_token = silent_login(&uuid).await?;
-            tracing::info!("Mode: Online (User: {})", username);
-        }
-    }
+        let username = user_config.user_profile.online.username.clone();
+        let uuid = user_config.user_profile.online.uuid.clone();
+        let access_token = silent_login(&uuid).await?;
+        tracing::info!("Mode: Online (User: {})", username);
+        (access_token, username, uuid)
+    };
 
     let game_path = &get_clients_dir().join(&args.instance_name);
     let game_version_json_path = game_path.join("version.json");
@@ -206,9 +179,6 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
     let detail: VersionDetail = serde_json::from_str(&data).unwrap();
     let version_id = detail.id;
     let required_java_version = detail.java_version.major_version as u32;
-    let client_jar_path = get_clients_dir()
-        .join(&args.instance_name)
-        .join(format!("{}.jar", &version_id));
 
     verify_game_integrity(game_path).await?;
 
@@ -216,14 +186,11 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
         resolve_java_executable(required_java_version, args.force_scan, &mut launcher_config)
             .await?;
 
-    // TODO: Optimize LaunchContext by removing duplicate components from the assembly, such as client_core_jar, and use game_path for assembly at the start_game stage.
-    //
     // Construct the launch context and start the process
     let launch_context = LaunchContext {
         game_path: PathBuf::from(game_path),
         version_id,
         java_path: Some(final_java_executable),
-        core_jar: client_jar_path,
         user: UserContext {
             username,
             uuid,

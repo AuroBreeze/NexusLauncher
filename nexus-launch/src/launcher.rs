@@ -7,7 +7,7 @@ use std::process::Command;
 
 fn build_classpath(
     libraries: &[PathBuf],
-    core_jar: &Path,
+    version_id: &str,
     fabric_profile: Option<&FabricProfile>,
     game_path: &Path,
 ) -> (String, Option<String>) {
@@ -37,6 +37,7 @@ fn build_classpath(
         None
     };
 
+    let core_jar = game_path.join(format!("{}.jar", version_id));
     cp_paths.push(core_jar.to_string_lossy().to_string());
     (cp_paths.join(sep), fabric_main_class)
 }
@@ -54,7 +55,7 @@ pub fn start_game(launch_context: LaunchContext) -> Result<(), AnyError> {
 
     let (classpath, fabric_main_class) = build_classpath(
         &launch_context.libraries,
-        &launch_context.core_jar,
+        &launch_context.version_id,
         launch_context.fabric_loader.as_ref(),
         &launch_context.game_path,
     );

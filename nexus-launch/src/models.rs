@@ -8,7 +8,6 @@ pub struct LaunchContext {
     pub game_path: PathBuf,
     pub version_id: String,         // such as "1.20.1-fabric"
     pub java_path: Option<PathBuf>, // Path to the verified Java executable file
-    pub core_jar: PathBuf,          // Path to the original version's core jar
     pub user: UserContext,
     pub max_memory: Option<u32>,
 
