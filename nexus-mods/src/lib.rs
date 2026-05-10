@@ -1,6 +1,8 @@
+pub mod api;
 pub mod models;
 
-use crate::models::{SearchParams, search_project};
+use crate::api::search_project;
+use crate::models::SearchParams;
 use nexus_cli::cli::ModArgs;
 use nexus_core::AnyError;
 
