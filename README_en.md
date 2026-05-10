@@ -8,11 +8,13 @@ This is an unofficial launcher and is not affiliated with Mojang or Microsoft.
 
 ## Features
 
-- **Java Management**: Automatic detection and downloading of required Java versions (defaulting to 17).
-- **Game Installation**: Download core JARs, libraries, and assets asynchronously.
-- **Mod Loader Support**: Built-in support for Fabric and Quilt installation.
-- **Authentication**: Supports both Microsoft online login and offline modes.
-- **Performance**: Lightweight and fast, built on the Tokio runtime.
+- **Game Installation**: Async download of core JAR, libraries, and assets with SHA1 verification and resumable downloads
+- **Java Management**: Auto-scan system Java, cache paths, download JRE from Adoptium
+- **Mod Search**: Modrinth API integration with full-text search, facet filters, sorting, and pagination
+- **Dependency Resolution**: Fetch project dependency trees and version listings
+- **Mod Loaders**: Built-in Fabric installation and launch support
+- **Authentication**: Microsoft device-code OAuth login + offline mode
+- **Performance**: Lightweight and fast, built on the Tokio async runtime
 
 ## Installation
 
@@ -41,14 +43,22 @@ cargo run -- launch 1.20.1
 
 ## Command Reference
 
-- `launch <instance>` - Launch a game instance (options: `--offline`, `--max-memory`, `--force-scan`)
-- `install core --game-version <V>` - Download a specific Minecraft version
-- `install loader <instance> --loader <fabric|quilt>` - Install a mod loader
-- `install mod --query <Q> --game-version <V>` - Search and install mods
-- `java --scan` - Scan local system for Java installations
-- `java --download --version <N>` - Download a specific Java runtime
-- `auth --login` - Authenticate with Microsoft
-- `set --show` - Display current configuration and settings
+### Core
+- `launch <instance>` — Launch game (`--offline`, `--max-memory`, `--force-scan`)
+- `install core --game-version <V>` — Download version (`--name` for custom directory)
+- `install loader <instance> --loader <fabric|quilt>` — Install mod loader
+- `install mod --query <Q>` — Search mods (`-g` version filter, `-l` count)
+
+### Search
+- `search mod <query>` — Modrinth full-text search (`-l` limit, `-g` version, `-i` sort, `-o` offset)
+- `search java` — List installed Java (`-s` scan, `-v` filter version)
+- `search user <instance>` — Read cached player profiles from game instance
+
+### Auth & Config
+- `auth --login` — Microsoft device-code login
+- `auth --logout <name>` — Clear credentials
+- `set -n <name> -u <uuid>` — Set offline username/UUID
+- `set --show` — Display current config
 
 ## Contributing
 

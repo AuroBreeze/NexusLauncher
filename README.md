@@ -8,11 +8,13 @@
 
 ## 特性
 
-- **Java 管理**：自动检测并下载所需的 Java 版本（默认为 17）。
-- **游戏安装**：异步下载核心 JAR、库文件和资源文件。
-- **Mod 加载器支持**：内置对 Fabric 和 Quilt 安装的支持。
-- **身份验证**：支持 Microsoft 在线登录和离线模式。
-- **高性能**：轻量且快速，基于 Tokio 运行时构建。
+- **游戏安装**：异步下载核心 JAR、库文件和资源文件，支持 SHA1 校验和断点续传
+- **Java 管理**：自动扫描系统 Java、缓存路径、支持从 Adoptium 下载 JRE
+- **Mod 搜索**：集成 Modrinth API，支持全文搜索、分面过滤、排序和分页
+- **Mod 依赖解析**：获取项目完整依赖树和版本列表
+- **Mod 加载器**：内置 Fabric 安装和启动支持
+- **身份验证**：Microsoft 设备码 OAuth 登录 + 离线模式
+- **高性能**：轻量且快速，基于 Tokio 异步运行时构建
 
 ## 安装
 
@@ -41,14 +43,22 @@ cargo run -- launch 1.20.1
 
 ## 命令参考
 
-- `launch <instance>` - 启动游戏实例（选项：`--offline`, `--max-memory`, `--force-scan`）
-- `install core --game-version <V>` - 下载特定的 Minecraft 版本
-- `install loader <instance> --loader <fabric|quilt>` - 安装 Mod 加载器
-- `install mod --query <Q> --game-version <V>` - 搜索并安装 Mod
-- `java --scan` - 扫描本地系统的 Java 安装
-- `java --download --version <N>` - 下载特定的 Java 运行时
-- `auth --login` - 使用 Microsoft 身份验证
-- `set --show` - 显示当前配置和设置
+### 核心
+- `launch <instance>` — 启动游戏（`--offline`, `--max-memory`, `--force-scan`）
+- `install core --game-version <V>` — 下载版本（`--name` 自定义目录名）
+- `install loader <instance> --loader <fabric|quilt>` — 安装 Mod 加载器
+- `install mod --query <Q>` — 搜索 Mod（`-g` 版本过滤, `-l` 数量）
+
+### 搜索
+- `search mod <query>` — Modrinth 全文搜索（`-l` 数量, `-g` 版本, `-i` 排序, `-o` 分页）
+- `search java` — 列出已安装 Java（`-s` 扫描, `-v` 过滤版本）
+- `search user <instance>` — 读取游戏实例的玩家缓存
+
+### 认证与配置
+- `auth --login` — Microsoft 设备码登录
+- `auth --logout <name>` — 清除凭据
+- `set -n <name> -u <uuid>` — 设置离线用户名/UUID
+- `set --show` — 显示当前配置
 
 ## 贡献
 
