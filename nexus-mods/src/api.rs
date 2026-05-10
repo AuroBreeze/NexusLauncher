@@ -13,6 +13,12 @@ fn url_encode_json(json: &str) -> String {
         .replace('"', "%22")
 }
 
+// Format a slice of strings as a JSON array for query parameter values
+fn json_array(items: &[String]) -> String {
+    let inner: Vec<String> = items.iter().map(|s| format!("\"{}\"", s)).collect();
+    format!("[{}]", inner.join(","))
+}
+
 /// Search for projects on Modrinth.
 ///
 /// See: <https://docs.modrinth.com/api/operations/searchprojects/>
@@ -75,11 +81,6 @@ pub async fn list_project_versions(params: &ListVersionsParams) -> Result<Vec<Ve
         "https://api.modrinth.com/v2/project/{}/version",
         params.id_or_slug
     );
-
-    fn json_array(items: &[String]) -> String {
-        let inner: Vec<String> = items.iter().map(|s| format!("\"{}\"", s)).collect();
-        format!("[{}]", inner.join(","))
-    }
 
     let mut query_params: Vec<String> = Vec::new();
     if let Some(ref loaders) = params.loaders {
@@ -477,5 +478,82 @@ mod tests {
         let primary = files.iter().find(|f| f.primary).or(files.first());
         assert!(primary.is_some(), "Should have at least one file");
         assert!(!primary.unwrap().url.is_empty());
+    }
+
+    // ============================================================
+    // Pure function tests
+    // ============================================================
+
+    #[test]
+    fn test_url_encode_json_brackets_and_quotes() {
+        let input = r#"[["categories:fabric"],["versions:1.17.1"]]"#;
+        let encoded = url_encode_json(input);
+        assert!(!encoded.contains('['));
+        assert!(!encoded.contains(']'));
+        assert!(!encoded.contains('"'));
+        assert!(encoded.contains("%5B"));
+        assert!(encoded.contains("%5D"));
+        assert!(encoded.contains("%22"));
+    }
+
+    #[test]
+    fn test_url_encode_json_percent() {
+        assert_eq!(url_encode_json("%"), "%25");
+        assert_eq!(url_encode_json("%5B"), "%255B");
+    }
+
+    #[test]
+    fn test_url_encode_json_no_special_chars() {
+        assert_eq!(url_encode_json("hello"), "hello");
+    }
+
+    #[test]
+    fn test_json_array_single() {
+        assert_eq!(json_array(&["fabric".to_string()]), "[\"fabric\"]");
+    }
+
+    #[test]
+    fn test_json_array_multiple() {
+        assert_eq!(
+            json_array(&["fabric".to_string(), "forge".to_string()]),
+            "[\"fabric\",\"forge\"]"
+        );
+    }
+
+    #[test]
+    fn test_json_array_empty() {
+        assert_eq!(json_array(&[]), "[]");
+    }
+
+    // ============================================================
+    // Error path tests (network)
+    // ============================================================
+
+    #[tokio::test]
+    async fn test_get_project_invalid_id() {
+        let result = get_project("nonexistent-slug-12345").await;
+        assert!(result.is_err(), "Invalid project should return an error");
+    }
+
+    #[tokio::test]
+    async fn test_get_project_dependencies_invalid_id() {
+        let result = get_project_dependencies("nonexistent-slug-12345").await;
+        assert!(result.is_err(), "Invalid project should return an error");
+    }
+
+    #[tokio::test]
+    async fn test_search_project_no_results() {
+        let p = SearchParams {
+            query: "xyznonexistentmod12345".to_string(),
+            limit: Some(5),
+            offset: None,
+            index: None,
+            facets: None,
+        };
+        let result = search_project(&p).await;
+        assert!(result.is_ok());
+        let sr = result.unwrap();
+        assert!(sr.hits.is_empty());
+        assert_eq!(sr.total_hits, 0);
     }
 }
