@@ -43,7 +43,20 @@ pub struct SearchArgs {
 pub enum SearchCommands {
     /// Search for mods on Modrinth
     Mod(SearchModArgs),
-    // TODO: Add search subcommands for Java, Loader, Version, etc.
+    /// Search for installed Java runtimes
+    Java(SearchJavaArgs),
+    // TODO: Add search subcommands for Loader, Version, etc.
+}
+
+#[derive(Args, Debug)]
+pub struct SearchJavaArgs {
+    /// Filter by major Java version (e.g. 17, 21)
+    #[arg(short, long)]
+    pub version: Option<u32>,
+
+    /// Force a fresh scan for installed Java before listing
+    #[arg(short, long, action = clap::ArgAction::SetTrue)]
+    pub scan: bool,
 }
 
 #[derive(Args, Debug)]

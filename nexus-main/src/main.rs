@@ -11,7 +11,7 @@ use nexus_config::handle_set;
 use nexus_config::models::{LaunchConfig, UserConfig};
 
 use nexus_java::handle_java;
-use nexus_java::java::resolve_java_executable;
+use nexus_java::java::{resolve_java_executable, scan_local_java_environments};
 
 use nexus_launch::launcher::start_game;
 use nexus_launch::models::{LaunchContext, UserContext};
@@ -61,6 +61,7 @@ async fn main() -> Result<(), AnyError> {
 
         Some(Commands::Search(args)) => match args.command {
             SearchCommands::Mod(search_args) => handle_search_mod(&search_args).await?,
+            SearchCommands::Java(search_args) => handle_search_java(&search_args).await?,
         },
 
         Some(Commands::Set(args)) => handle_set(&args).await?,
@@ -88,6 +89,57 @@ async fn handle_search_mod(args: &SearchModArgs) -> Result<(), AnyError> {
         facets,
     };
     search_project(&params).await?;
+    Ok(())
+}
+
+async fn handle_search_java(args: &SearchJavaArgs) -> Result<(), AnyError> {
+    if args.scan {
+        tracing::info!("Scanning for installed Java runtimes...");
+        let javas = scan_local_java_environments(None).await;
+
+        // Update the config cache
+        let mut config = LaunchConfig::load().await;
+        for j in &javas {
+            config.java_paths.insert(j.major_version, j.path.clone());
+        }
+        config.save().await?;
+
+        tracing::info!("Found {} Java installation(s):", javas.len());
+        for j in &javas {
+            if let Some(filter) = args.version
+                && j.major_version != filter
+            {
+                continue;
+            }
+            tracing::info!(
+                "  Java {} ({}) → {}",
+                j.major_version,
+                j.full_version,
+                j.path.display()
+            );
+        }
+    } else {
+        // Read from cached config
+        let config = LaunchConfig::load().await;
+        if config.java_paths.is_empty() {
+            tracing::warn!("No cached Java installations. Run with --scan to search the system.");
+            return Ok(());
+        }
+
+        let mut versions: Vec<_> = config.java_paths.iter().collect();
+        versions.sort_by_key(|(v, _)| *v);
+
+        tracing::info!("Cached Java installation(s):",);
+        for (major_version, path) in &versions {
+            if let Some(filter) = args.version
+                && *major_version != &filter
+            {
+                continue;
+            }
+            tracing::info!("  Java {} → {}", major_version, path.display());
+        }
+    }
+
     Ok(())
 }
 
