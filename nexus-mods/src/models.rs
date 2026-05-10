@@ -156,62 +156,6 @@ pub struct ListVersionsParams {
 }
 
 // ============================================================
-// Version / Project endpoints
-// ============================================================
-
-/// Wrapper returned by project-version listing endpoints.
-#[derive(Deserialize, Debug)]
-pub struct ModVersion {
-    /// The version files available for download.
-    pub files: Vec<ModFile>,
-
-    /// The total number of versions matching the request.
-    pub total_hits: i32,
-}
-
-/// A single version of a project.
-///
-/// Returned by `GET /v2/version/{id}`.
-/// See: <https://docs.modrinth.com/api/operations/getversion/>
-#[derive(Deserialize, Debug)]
-pub struct ModVersionJson {
-    /// The display name of this version.
-    pub name: String,
-
-    /// A list of Minecraft versions that this version supports.
-    pub game_version: Vec<String>,
-
-    /// The release channel for this version.
-    /// Allowed values: `”release”`, `”beta”`, `”alpha”`.
-    pub version_type: String,
-
-    /// The mod loaders that this version supports.
-    /// For resource packs, use `”minecraft”`.
-    pub loaders: Vec<String>,
-
-    /// The unique identifier of this version.
-    pub id: String,
-
-    /// The ID of the project this version belongs to.
-    pub project_id: String,
-
-    /// The ID of the author who published this version.
-    pub author_id: String,
-
-    /// The date this version was published (ISO-8601 timestamp).
-    pub date_publish: String,
-
-    /// The number of times this version has been downloaded.
-    pub downloads: i32,
-
-    /// The files belonging to this version.
-    pub files: Vec<ModFile>,
-
-    /// The dependencies declared by this version.
-    pub dependencies: Vec<ModDependency>,
-}
-
-// ============================================================
 // Shared sub-structs
 // ============================================================
 
@@ -223,25 +167,6 @@ pub struct Hashes {
 
     /// The SHA-512 hash of the file contents (hex-encoded).
     pub sha512: String,
-}
-
-/// A downloadable file belonging to a version.
-#[derive(Deserialize, Debug)]
-pub struct ModFile {
-    /// The SHA-1 and SHA-512 hashes of the file.
-    pub hash: Hashes,
-
-    /// The direct download URL for this file.
-    pub url: String,
-
-    /// The original filename of this file.
-    pub filename: String,
-
-    /// Whether this file is the primary (recommended) download.
-    pub primary: bool,
-
-    /// The size of the file in bytes.
-    pub size: i32,
 }
 
 /// A dependency declaration for a version.
@@ -448,10 +373,8 @@ pub struct GalleryImage {
 
 /// A Modrinth project version.
 ///
-/// Returned by `GET /project/{id|slug}/version` and within
-/// `GET /project/{id|slug}/dependencies`. More complete than
-/// [`ModVersionJson`] — includes `featured`, `status`, and
-/// files with `file_type` / `signature`.
+/// Returned by `GET /project/{id|slug}/version`, `GET /version/{id}`,
+/// and within `GET /project/{id|slug}/dependencies`.
 #[derive(Deserialize, Debug)]
 pub struct Version {
     /// The name of this version.
@@ -512,8 +435,6 @@ pub struct Version {
 }
 
 /// A file belonging to a [`Version`].
-///
-/// Includes `file_type` and `signature` fields not present in [`ModFile`].
 #[derive(Deserialize, Debug)]
 pub struct VersionFile {
     /// The unique identifier of this file.

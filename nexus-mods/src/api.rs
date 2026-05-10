@@ -1,6 +1,6 @@
 use crate::models::{
-    ListVersionsParams, ModVersionJson, Project, ProjectDependencies, SearchParams, SearchResult,
-    Version,
+    ListVersionsParams, Project, ProjectDependencies, SearchParams, SearchResult, Version,
+    VersionFile,
 };
 use nexus_core::AnyError;
 use reqwest::Client;
@@ -138,34 +138,34 @@ pub async fn get_project_dependencies(id_or_slug: &str) -> Result<ProjectDepende
     Ok(result)
 }
 
-// link: https://docs.modrinth.com/api/operations/getproject/
-// TODO: Will be implemented
-pub async fn get_version(_id: &String) {
-    unimplemented!()
-}
+/// Get a single version by ID.
+///
+/// See: <https://docs.modrinth.com/api/operations/getversion/>
+pub async fn get_version(id: &str) -> Result<Version, AnyError> {
+    let url = format!("https://api.modrinth.com/v2/version/{}", id);
 
-// link : https://docs.modrinth.com/api/operations/getprojectversions/
-// TODO: Will be implemented
-pub async fn get_project_versions(_id: &String) {
-    unimplemented!()
-}
-
-// link: https://docs.modrinth.com/api/operations/getversion/
-// SIrB5bCM
-// TODO: Will be implemented
-pub async fn download_mod(id: &String) -> Result<Vec<ModVersionJson>, AnyError> {
     let client = Client::new();
-    let _url = format!("https://api.modrinth.com/v2/version/{}", id);
-
     let resp = client
-        .get(_url)
+        .get(&url)
         .header("User-Agent", "AuroBreeze/NexusLauncher/0.1.0")
         .send()
         .await?;
-
-    let result = resp.json::<Vec<ModVersionJson>>().await?;
-    tracing::info!("📦 Mod version: {:#?}", result);
+    let result = resp.json::<Version>().await?;
+    tracing::info!("📦 Version: {} — {}", result.name, result.version_number);
     Ok(result)
+}
+
+/// Get a version's files by version ID.
+///
+/// Convenience wrapper around [`get_version`].
+pub async fn get_version_files(id: &str) -> Result<Vec<VersionFile>, AnyError> {
+    let version = get_version(id).await?;
+    tracing::info!(
+        "📦 {} files for version {}",
+        version.files.len(),
+        version.name
+    );
+    Ok(version.files)
 }
 
 #[cfg(test)]
@@ -434,5 +434,48 @@ mod tests {
             assert!(v.loaders.contains(&"fabric".to_string()));
             assert!(v.game_versions.contains(&"1.21.4".to_string()));
         }
+    }
+
+    #[tokio::test]
+    async fn test_get_version_by_id() {
+        let params = ListVersionsParams {
+            id_or_slug: "P7dR8mSH".to_string(),
+            loaders: None,
+            game_versions: None,
+            featured: None,
+            include_changelog: Some(false),
+        };
+        let versions = list_project_versions(&params).await.unwrap();
+        let version_id = &versions[0].id;
+
+        let result = get_version(version_id).await;
+        assert!(result.is_ok(), "Failed to get version by ID");
+        let v = result.unwrap();
+        assert_eq!(v.id, *version_id);
+        assert!(!v.name.is_empty());
+        assert!(!v.version_number.is_empty());
+        assert!(!v.files.is_empty());
+        assert!(!v.game_versions.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_get_version_files() {
+        let params = ListVersionsParams {
+            id_or_slug: "P7dR8mSH".to_string(),
+            loaders: None,
+            game_versions: None,
+            featured: None,
+            include_changelog: Some(false),
+        };
+        let versions = list_project_versions(&params).await.unwrap();
+        let version_id = &versions[0].id;
+
+        let result = get_version_files(version_id).await;
+        assert!(result.is_ok(), "Failed to download mod");
+        let files = result.unwrap();
+        assert!(!files.is_empty());
+        let primary = files.iter().find(|f| f.primary).or(files.first());
+        assert!(primary.is_some(), "Should have at least one file");
+        assert!(!primary.unwrap().url.is_empty());
     }
 }
