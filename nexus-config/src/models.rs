@@ -38,6 +38,7 @@ pub struct LaunchConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
 
     #[test]
     fn test_user_config_default() {
@@ -51,13 +52,19 @@ mod tests {
 
     #[test]
     fn test_user_config_toml_roundtrip() {
-        let mut cfg = UserConfig::default();
-        cfg.user_profile.offline.username = "Player".to_string();
-        cfg.user_profile.offline.uuid = "abc123".to_string();
-        cfg.user_profile.online.username = "OnlinePlayer".to_string();
-        cfg.user_profile.online.uuid = "def456".to_string();
-        cfg.username
-            .insert("Player".to_string(), "abc123".to_string());
+        let cfg = UserConfig {
+            user_profile: UserProfiles {
+                offline: UserProfile {
+                    username: "Player".to_string(),
+                    uuid: "abc123".to_string(),
+                },
+                online: UserProfile {
+                    username: "OnlinePlayer".to_string(),
+                    uuid: "def456".to_string(),
+                },
+            },
+            username: HashMap::from([("Player".to_string(), "abc123".to_string())]),
+        };
 
         let toml_str = toml::to_string_pretty(&cfg).unwrap();
         let restored: UserConfig = toml::from_str(&toml_str).unwrap();
@@ -78,12 +85,13 @@ mod tests {
 
     #[test]
     fn test_launch_config_toml_roundtrip() {
-        let mut cfg = LaunchConfig::default();
-        cfg.offline = false;
-        cfg.java_paths
-            .insert(17, PathBuf::from("/usr/lib/jvm/java-17/bin/java"));
-        cfg.java_paths
-            .insert(21, PathBuf::from("/usr/lib/jvm/java-21/bin/java"));
+        let cfg = LaunchConfig {
+            offline: false,
+            java_paths: HashMap::from([
+                (17, PathBuf::from("/usr/lib/jvm/java-17/bin/java")),
+                (21, PathBuf::from("/usr/lib/jvm/java-21/bin/java")),
+            ]),
+        };
 
         let toml_str = toml::to_string_pretty(&cfg).unwrap();
         let restored: LaunchConfig = toml::from_str(&toml_str).unwrap();
@@ -102,7 +110,10 @@ mod tests {
 
     #[test]
     fn test_launch_config_empty_roundtrip() {
-        let cfg = LaunchConfig::default();
+        let cfg = LaunchConfig {
+            offline: true,
+            java_paths: HashMap::new(),
+        };
         let toml_str = toml::to_string_pretty(&cfg).unwrap();
         let restored: LaunchConfig = toml::from_str(&toml_str).unwrap();
         assert!(restored.offline);

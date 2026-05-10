@@ -556,4 +556,84 @@ mod tests {
         assert!(sr.hits.is_empty());
         assert_eq!(sr.total_hits, 0);
     }
+
+    // ============================================================
+    // Model deserialization smoke tests (catch API changes)
+    // ============================================================
+
+    #[tokio::test]
+    async fn test_mod_hit_fields_deserialize() {
+        let p = params("fabric-api", 1);
+        let sr = search_project(&p).await.unwrap();
+        let hit = &sr.hits[0];
+        // Every field must deserialize with the expected type
+        assert!(!hit.project_id.is_empty());
+        assert!(!hit.title.is_empty());
+        assert!(!hit.author.is_empty());
+        assert!(!hit.description.is_empty());
+        assert!(!hit.categories.is_empty());
+        assert!(!hit.client_side.is_empty());
+        assert!(!hit.server_side.is_empty());
+        assert!(!hit.project_type.is_empty());
+        assert!(hit.downloads > 0);
+        assert!(!hit.icon_url.is_empty());
+        assert!(!hit.versions.is_empty());
+        assert!(hit.follows > 0);
+        assert!(!hit.date_created.is_empty());
+        assert!(!hit.date_modified.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_project_fields_deserialize() {
+        let project = get_project("P7dR8mSH").await.unwrap();
+        assert_eq!(project.id, "P7dR8mSH");
+        assert!(!project.slug.is_empty());
+        assert!(!project.title.is_empty());
+        assert!(!project.description.is_empty());
+        assert!(!project.categories.is_empty());
+        assert!(!project.client_side.is_empty());
+        assert!(!project.server_side.is_empty());
+        assert!(!project.body.is_empty());
+        assert!(!project.status.is_empty());
+        assert!(!project.project_type.is_empty());
+        assert!(project.downloads > 0);
+        assert!(!project.team.is_empty());
+        assert!(!project.published.is_empty());
+        assert!(!project.updated.is_empty());
+        assert!(project.followers > 0);
+        assert!(project.license.is_some());
+        assert!(!project.game_versions.is_empty());
+        assert!(!project.loaders.is_empty());
+        assert!(!project.versions.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_version_fields_deserialize() {
+        let params = ListVersionsParams {
+            id_or_slug: "P7dR8mSH".to_string(),
+            loaders: None,
+            game_versions: None,
+            featured: None,
+            include_changelog: Some(false),
+        };
+        let versions = list_project_versions(&params).await.unwrap();
+        let v = &versions[0];
+        assert!(!v.id.is_empty());
+        assert!(!v.project_id.is_empty());
+        assert!(!v.author_id.is_empty());
+        assert!(!v.name.is_empty());
+        assert!(!v.version_number.is_empty());
+        assert!(!v.version_type.is_empty());
+        assert!(!v.game_versions.is_empty());
+        assert!(!v.loaders.is_empty());
+        assert!(!v.date_published.is_empty());
+        assert!(v.downloads > 0);
+        assert!(!v.files.is_empty());
+        // Verify file structure
+        let f = &v.files[0];
+        assert!(!f.id.is_empty());
+        assert!(!f.url.is_empty());
+        assert!(!f.filename.is_empty());
+        assert!(f.size > 0);
+    }
 }
