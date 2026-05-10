@@ -61,8 +61,8 @@ pub enum InstallCommands {
     /// Download and install a loader (e.g., Fabric, Quilt)
     Loader(LoaderArgs),
 
-    // TODO: Add a mod search and download function
-    /// Download and install a mod
+    // TODO: Add mod download functionality
+    /// Search and download mods
     Mod(ModArgs),
 
     // TODO: Downloads compatible with older versions
