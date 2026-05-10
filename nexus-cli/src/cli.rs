@@ -29,19 +29,43 @@ pub enum Commands {
 
     /// Set and get options
     Set(SetArgs),
-    // TODO: Add a search subcommand and extract and migrate the search functionality from other commands
-    // such as Search for Java, Search for mod, Search for loader, Search for version and so on.
+    /// Search for mods, loaders, and more
     Search(SearchArgs),
 }
 
 #[derive(Args)]
 pub struct SearchArgs {
-    // category: String,
-    /// Query string to search for the mod
-    pub category: String,
+    #[command(subcommand)]
+    pub command: SearchCommands,
+}
 
+#[derive(Subcommand)]
+pub enum SearchCommands {
+    /// Search for mods on Modrinth
+    Mod(SearchModArgs),
+    // TODO: Add search subcommands for Java, Loader, Version, etc.
+}
+
+#[derive(Args, Debug)]
+pub struct SearchModArgs {
+    /// Query string to search for
+    pub query: String,
+
+    /// Maximum number of results (default 5, max 100)
+    #[arg(short, long, default_value = "5")]
+    pub limit: i32,
+
+    /// Sort order: relevance, downloads, follows, newest, updated
     #[arg(short, long)]
-    pub version: Option<String>,
+    pub index: Option<String>,
+
+    /// Filter by game version (e.g. "1.21.4")
+    #[arg(short = 'g', long)]
+    pub game_version: Option<String>,
+
+    /// Number of results to skip for pagination
+    #[arg(short = 'o', long)]
+    pub offset: Option<i32>,
 }
 
 // ==========================================

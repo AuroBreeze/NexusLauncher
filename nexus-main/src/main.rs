@@ -20,7 +20,9 @@ use nexus_loader::fabric::find_fabric_json;
 use nexus_loader::handle_loader;
 use nexus_loader::models::FabricProfile;
 
+use nexus_mods::api::search_project;
 use nexus_mods::handle_mods;
+use nexus_mods::models::SearchParams;
 
 use nexus_core::*;
 
@@ -57,18 +59,35 @@ async fn main() -> Result<(), AnyError> {
             InstallCommands::Core(core_args) => handle_core(&core_args).await?,
         },
 
+        Some(Commands::Search(args)) => match args.command {
+            SearchCommands::Mod(search_args) => handle_search_mod(&search_args).await?,
+        },
+
         Some(Commands::Set(args)) => handle_set(&args).await?,
 
         // Handling the case where no command is provided
         None => {
             println!("Please specify a command. Use --help");
         }
-
-        _ => {
-            unimplemented!()
-        }
     }
 
+    Ok(())
+}
+
+async fn handle_search_mod(args: &SearchModArgs) -> Result<(), AnyError> {
+    let facets = args
+        .game_version
+        .as_ref()
+        .map(|gv| vec![vec![format!("versions:{}", gv)]]);
+
+    let params = SearchParams {
+        query: args.query.clone(),
+        limit: Some(args.limit),
+        offset: args.offset,
+        index: args.index.clone(),
+        facets,
+    };
+    search_project(&params).await?;
     Ok(())
 }
 
