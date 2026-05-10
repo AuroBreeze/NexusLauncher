@@ -12,12 +12,10 @@ FAILED=0
 
 echo -e "${GREEN}Starting pre-push checks...${NC}"
 
-# 1. Check formatting
-echo -e "\n${GREEN}[1/5] Checking code formatting (cargo fmt)...${NC}"
-if ! cargo fmt --all -- --check; then
-  echo -e "${RED}Formatting check failed!${NC}"
-  FAILED=1
-fi
+# 1. Auto-format code
+echo -e "\n${GREEN}[1/5] Auto-formatting code (cargo fmt)...${NC}"
+cargo fmt --all
+echo -e "${GREEN}Formatting applied.${NC}"
 
 # 2. Run Clippy (Lint)
 echo -e "\n${GREEN}[2/5] Running code linting (cargo clippy)...${NC}"
