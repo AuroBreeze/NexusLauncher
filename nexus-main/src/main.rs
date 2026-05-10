@@ -32,6 +32,7 @@ use nexus_version::source::{
     download_assets, download_libraries, fetch_version_detail, obtain_manifest,
 };
 use nexus_version::verify_game_integrity;
+use serde::Deserialize;
 
 #[tokio::main]
 async fn main() -> Result<(), AnyError> {
@@ -62,6 +63,7 @@ async fn main() -> Result<(), AnyError> {
         Some(Commands::Search(args)) => match args.command {
             SearchCommands::Mod(search_args) => handle_search_mod(&search_args).await?,
             SearchCommands::Java(search_args) => handle_search_java(&search_args).await?,
+            SearchCommands::User(search_args) => handle_search_user(&search_args).await?,
         },
 
         Some(Commands::Set(args)) => handle_set(&args).await?,
@@ -138,6 +140,56 @@ async fn handle_search_java(args: &SearchJavaArgs) -> Result<(), AnyError> {
             }
             tracing::info!("  Java {} → {}", major_version, path.display());
         }
+    }
+
+    Ok(())
+}
+
+#[derive(Debug, Deserialize)]
+struct UserCacheEntry {
+    name: String,
+    uuid: String,
+    #[serde(rename = "expiresOn")]
+    expires_on: String,
+}
+
+async fn handle_search_user(args: &SearchUserArgs) -> Result<(), AnyError> {
+    let path = get_clients_dir()
+        .join(&args.instance)
+        .join("usercache.json");
+
+    let content = match std::fs::read_to_string(&path) {
+        Ok(c) => c,
+        Err(_) => {
+            tracing::warn!(
+                "usercache.json not found in instance '{}'. \
+                 Launch the game and join a world first.",
+                args.instance
+            );
+            return Ok(());
+        }
+    };
+
+    let entries: Vec<UserCacheEntry> = serde_json::from_str(&content)?;
+
+    if entries.is_empty() {
+        tracing::info!("No cached user profiles in instance '{}'.", args.instance);
+        return Ok(());
+    }
+
+    tracing::info!(
+        "Found {} cached profile(s) in instance '{}':",
+        entries.len(),
+        args.instance
+    );
+    for (i, entry) in entries.iter().enumerate() {
+        tracing::info!(
+            "  [{}] name: {}, uuid: {}, expires: {}",
+            i + 1,
+            entry.name,
+            entry.uuid,
+            entry.expires_on
+        );
     }
 
     Ok(())

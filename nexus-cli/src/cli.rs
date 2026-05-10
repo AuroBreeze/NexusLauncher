@@ -45,7 +45,15 @@ pub enum SearchCommands {
     Mod(SearchModArgs),
     /// Search for installed Java runtimes
     Java(SearchJavaArgs),
+    /// List cached user profiles from a game instance's usercache.json
+    User(SearchUserArgs),
     // TODO: Add search subcommands for Loader, Version, etc.
+}
+
+#[derive(Args, Debug)]
+pub struct SearchUserArgs {
+    /// The name of the game instance (e.g. "1.20")
+    pub instance: String,
 }
 
 #[derive(Args, Debug)]
