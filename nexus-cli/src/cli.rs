@@ -80,6 +80,10 @@ pub struct CoreArgs {
     #[arg(short, long)]
     pub game_version: Option<String>,
 
+    /// Custom directory name for the game instance (defaults to the game version)
+    #[arg(short, long)]
+    pub name: Option<String>,
+
     #[arg(short, long)]
     pub list: Option<String>,
 }

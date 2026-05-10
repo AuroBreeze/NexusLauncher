@@ -76,17 +76,20 @@ async fn handle_core(args: &CoreArgs) -> Result<(), AnyError> {
     if let Some(game_version) = &args.game_version {
         let target_version = game_version;
 
-        let version_dir = get_clients_dir().join(target_version);
+        // Use --name if provided, otherwise fall back to the game version
+        let dir_name = args.name.as_deref().unwrap_or(target_version);
+        let version_dir = get_clients_dir().join(dir_name);
         let local_json_path = version_dir.join("version.json");
-        if local_json_path.exists() {
-            tracing::warn!(
-                "The game instance already exists. Please rename the existing instance (if you do not rename it, the default name will be the game version)."
-            );
-            return Ok(());
-        }
 
-        let detail = {
-            // fetch
+        if local_json_path.exists() {
+            // Directory already exists — verify integrity and re-download any missing/corrupt files
+            tracing::info!(
+                "Game directory '{}' already exists, verifying integrity...",
+                dir_name
+            );
+            verify_game_integrity(&version_dir).await?;
+        } else {
+            // Fresh download
             let manifest = obtain_manifest().await?;
 
             let v_info = manifest
@@ -96,33 +99,26 @@ async fn handle_core(args: &CoreArgs) -> Result<(), AnyError> {
                 .ok_or_else(|| format!("Version {} not found in manifest", target_version))?;
 
             tracing::info!("Fetching version data for {}...", target_version);
-            let d = fetch_version_detail(&v_info.url).await?;
+            let detail = fetch_version_detail(&v_info.url).await?;
 
-            // Ensure the directory exists and save the JSON for future offline use
             tokio::fs::create_dir_all(&version_dir).await?;
-            let json_content = serde_json::to_string_pretty(&d)?;
-            tokio::fs::write(&local_json_path, json_content).await?;
 
-            d
-        };
-
-        // Verify and download the client JAR
-        let client_jar_path = get_clients_dir()
-            .join(target_version)
-            .join(format!("{}.jar", target_version));
-
-        if !client_jar_path.exists() {
-            tracing::info!("Downloading core JAR file...");
             download_and_verify(
                 &detail.downloads.client.url,
-                &client_jar_path,
+                &version_dir.join(format!("{}.jar", target_version)),
                 detail.downloads.client.sha1.as_str(),
             )
             .await?;
-        }
 
-        download_libraries(&detail).await?;
-        download_assets(&detail).await?;
+            download_libraries(&detail).await?;
+            download_assets(&detail).await?;
+
+            // Save version.json last — it serves as the "download complete" sentinel.
+            // If interrupted before this point, the directory won't have version.json,
+            // so the next attempt will re-download (skipping already-valid files via SHA1 check).
+            let json_content = serde_json::to_string_pretty(&detail)?;
+            tokio::fs::write(&local_json_path, json_content).await?;
+        }
 
         tracing::info!("All core components for {} are ready!", target_version);
     }

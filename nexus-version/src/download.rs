@@ -35,18 +35,23 @@ pub async fn execute_downloads(
     let semaphore = Arc::new(Semaphore::new(max_concurrent));
 
     for task in tasks {
-        let pb = main_pb.clone();
-
-        // 1. check local cach
-        if task.local_path.exists() {
-            main_pb.set_message(format!("✅ Cached: {}", task.name));
-            main_pb.inc(1);
-            continue;
+        // Quick SHA1-verified cache check — skip spawning if file is already valid
+        if task.local_path.exists()
+            && let Ok(content) = fs::read(&task.local_path).await
+        {
+            let mut hasher = Sha1::new();
+            hasher.update(&content);
+            if hex::encode(hasher.finalize()) == task.sha1 {
+                main_pb.set_message(format!("✅ Cached: {}", task.name));
+                main_pb.inc(1);
+                continue;
+            }
         }
 
+        let pb = main_pb.clone();
         let sem_clone = Arc::clone(&semaphore);
 
-        // 2. dispatch async tasks
+        // dispatch async task
         set.spawn(async move {
             // Acquire the permit FIRST before doing any work or updating UI
             let _permit = sem_clone.acquire_owned().await.unwrap();
@@ -158,6 +163,7 @@ pub async fn pool_download_and_link(
 
     let pool_path = objects_base.join(lib_relative_path);
 
+    // TODO: Add SHA1 verification — exists() check alone may accept corrupt partial downloads
     if !pool_path.exists() {
         fs::create_dir_all(pool_path.parent().unwrap()).await?;
         let resp = reqwest::get(url).await?.bytes().await?;
