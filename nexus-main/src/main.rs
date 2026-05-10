@@ -258,7 +258,6 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
     let mut launcher_config = LaunchConfig::load().await;
 
     // Identity and Access Token Handling
-    // TODO: Add the usercache.json file from the game instance and synchronize the game's access_token when the game launch in first time
     let is_offline = args.offline.unwrap_or(launcher_config.offline);
 
     let (access_token, username, uuid) = if is_offline {
