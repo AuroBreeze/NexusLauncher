@@ -132,6 +132,29 @@ pub struct SearchParams {
     pub facets: Option<Vec<Vec<String>>>,
 }
 
+/// Parameters for listing a project's versions.
+///
+/// See: <https://docs.modrinth.com/api/operations/getprojectversions/>
+pub struct ListVersionsParams {
+    /// The ID or slug of the project.
+    pub id_or_slug: String,
+
+    /// Filter by mod loader types (e.g. `["fabric", "forge"]`).
+    pub loaders: Option<Vec<String>>,
+
+    /// Filter by game versions (e.g. `["1.18.1", "1.19"]`).
+    pub game_versions: Option<Vec<String>>,
+
+    /// Filter for featured (`true`) or non-featured (`false`) versions only.
+    pub featured: Option<bool>,
+
+    /// Include the changelog field in the response.
+    ///
+    /// Default: `true`. Set to `false` unless you specifically need all
+    /// changelogs — it reduces response size significantly.
+    pub include_changelog: Option<bool>,
+}
+
 // ============================================================
 // Version / Project endpoints
 // ============================================================
@@ -252,7 +275,7 @@ pub struct ProjectDependencies {
     pub projects: Vec<Project>,
 
     /// Versions that the project depends upon.
-    pub versions: Vec<DependencyVersion>,
+    pub versions: Vec<Version>,
 }
 
 /// A Modrinth project.
@@ -423,12 +446,14 @@ pub struct GalleryImage {
     pub ordering: i32,
 }
 
-/// A version listed in a dependency response.
+/// A Modrinth project version.
 ///
-/// This is more complete than [`ModVersionJson`] — it includes fields like
-/// `featured`, `status`, and files with `file_type` / `signature`.
+/// Returned by `GET /project/{id|slug}/version` and within
+/// `GET /project/{id|slug}/dependencies`. More complete than
+/// [`ModVersionJson`] — includes `featured`, `status`, and
+/// files with `file_type` / `signature`.
 #[derive(Deserialize, Debug)]
-pub struct DependencyVersion {
+pub struct Version {
     /// The name of this version.
     pub name: String,
 
@@ -483,14 +508,14 @@ pub struct DependencyVersion {
     pub changelog_url: Option<String>,
 
     /// A list of files available for download for this version.
-    pub files: Vec<DependencyFile>,
+    pub files: Vec<VersionFile>,
 }
 
-/// A file belonging to a [`DependencyVersion`].
+/// A file belonging to a [`Version`].
 ///
 /// Includes `file_type` and `signature` fields not present in [`ModFile`].
 #[derive(Deserialize, Debug)]
-pub struct DependencyFile {
+pub struct VersionFile {
     /// The unique identifier of this file.
     pub id: String,
 

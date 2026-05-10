@@ -1,4 +1,7 @@
-use crate::models::{ModVersionJson, Project, ProjectDependencies, SearchParams, SearchResult};
+use crate::models::{
+    ListVersionsParams, ModVersionJson, Project, ProjectDependencies, SearchParams, SearchResult,
+    Version,
+};
 use nexus_core::AnyError;
 use reqwest::Client;
 
@@ -61,6 +64,53 @@ pub async fn get_project(id_or_slug: &str) -> Result<Project, AnyError> {
         .await?;
     let result = resp.json::<Project>().await?;
     tracing::info!("📦 Project: {} ({})", result.title, result.id);
+    Ok(result)
+}
+
+/// List a project's versions.
+///
+/// See: <https://docs.modrinth.com/api/operations/getprojectversions/>
+pub async fn list_project_versions(params: &ListVersionsParams) -> Result<Vec<Version>, AnyError> {
+    let mut url = format!(
+        "https://api.modrinth.com/v2/project/{}/version",
+        params.id_or_slug
+    );
+
+    fn json_array(items: &[String]) -> String {
+        let inner: Vec<String> = items.iter().map(|s| format!("\"{}\"", s)).collect();
+        format!("[{}]", inner.join(","))
+    }
+
+    let mut query_params: Vec<String> = Vec::new();
+    if let Some(ref loaders) = params.loaders {
+        query_params.push(format!("loaders={}", json_array(loaders)));
+    }
+    if let Some(ref game_versions) = params.game_versions {
+        query_params.push(format!("game_versions={}", json_array(game_versions)));
+    }
+    if let Some(featured) = params.featured {
+        query_params.push(format!("featured={}", featured));
+    }
+    if let Some(include_changelog) = params.include_changelog {
+        query_params.push(format!("include_changelog={}", include_changelog));
+    }
+    if !query_params.is_empty() {
+        url.push('?');
+        url.push_str(&query_params.join("&"));
+    }
+
+    let client = Client::new();
+    let resp = client
+        .get(&url)
+        .header("User-Agent", "AuroBreeze/NexusLauncher/0.1.0")
+        .send()
+        .await?;
+    let result = resp.json::<Vec<Version>>().await?;
+    tracing::info!(
+        "📦 Found {} versions for project {}",
+        result.len(),
+        params.id_or_slug
+    );
     Ok(result)
 }
 
@@ -342,5 +392,47 @@ mod tests {
         assert!(result.is_ok(), "Should resolve dependencies by slug");
         let deps = result.unwrap();
         assert!(!deps.projects.is_empty(), "Iris should depend on Sodium");
+    }
+
+    #[tokio::test]
+    async fn test_list_project_versions() {
+        let params = ListVersionsParams {
+            id_or_slug: "P7dR8mSH".to_string(),
+            loaders: None,
+            game_versions: None,
+            featured: None,
+            include_changelog: Some(false),
+        };
+        let result = list_project_versions(&params).await;
+        assert!(result.is_ok(), "Failed to list versions");
+        let versions = result.unwrap();
+        assert!(!versions.is_empty(), "Fabric API should have versions");
+        let first = &versions[0];
+        assert!(!first.id.is_empty());
+        assert!(!first.name.is_empty());
+        assert!(!first.files.is_empty());
+        assert!(!first.game_versions.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_list_project_versions_filtered() {
+        let params = ListVersionsParams {
+            id_or_slug: "P7dR8mSH".to_string(),
+            loaders: Some(vec!["fabric".to_string()]),
+            game_versions: Some(vec!["1.21.4".to_string()]),
+            featured: Some(true),
+            include_changelog: Some(false),
+        };
+        let result = list_project_versions(&params).await;
+        assert!(result.is_ok(), "Failed to list filtered versions");
+        let versions = result.unwrap();
+        assert!(
+            !versions.is_empty(),
+            "Should have at least one matching version"
+        );
+        for v in &versions {
+            assert!(v.loaders.contains(&"fabric".to_string()));
+            assert!(v.game_versions.contains(&"1.21.4".to_string()));
+        }
     }
 }
