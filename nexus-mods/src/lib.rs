@@ -38,9 +38,14 @@ pub async fn handle_mods(args: &ModArgs) -> Result<(), AnyError> {
                 game_version.as_deref().unwrap_or("latest"),
                 instance
             );
-            let dest =
-                download_mod_to_instance(query, game_version.as_deref(), Some(&loader), instance)
-                    .await?;
+            let dest = download_mod_to_instance(
+                query,
+                game_version.as_deref(),
+                Some(&loader),
+                args.version_type.as_deref(),
+                instance,
+            )
+            .await?;
             tracing::info!("Mod installed to {}", dest.display());
         } else {
             let facets = args

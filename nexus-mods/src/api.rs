@@ -180,6 +180,7 @@ pub async fn download_mod_to_instance(
     query: &str,
     game_version: Option<&str>,
     loader: Option<&str>,
+    version_type: Option<&str>,
     instance_name: &str,
 ) -> Result<std::path::PathBuf, AnyError> {
     let facets = game_version.map(|gv| vec![vec![format!("versions:{}", gv)]]);
@@ -207,9 +208,21 @@ pub async fn download_mod_to_instance(
     })
     .await?;
 
-    // TODO: Prefer stable release versions over beta/alpha
-    let version = versions.first().ok_or("No matching version found")?;
-    tracing::info!("📦 Latest version: {}", version.version_number);
+    // Filter by version_type if specified
+    let version = if let Some(vt) = version_type {
+        versions
+            .iter()
+            .find(|v| v.version_type == vt)
+            .ok_or_else(|| {
+                let available: Vec<&str> =
+                    versions.iter().map(|v| v.version_type.as_str()).collect();
+                format!("No {} version found. Available types: {:?}", vt, available)
+            })?
+    } else {
+        versions.first().ok_or("No matching version found")?
+    };
+    tracing::info!("📦 Selected version: {}", version.version_number);
+    tracing::info!("📦 Version details: {:#?}", version);
 
     // TODO: Use loader info from API response instead of filename matching
     let primary_file = version

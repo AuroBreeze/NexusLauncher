@@ -171,6 +171,10 @@ pub struct ModArgs {
     /// Mod loader to filter versions for (required with --download)
     #[arg(short = 'L', long)]
     pub loader: Option<Loaders>,
+
+    /// Release channel: release (stable), beta, or alpha (default: release)
+    #[arg(short = 't', long, default_value = "release")]
+    pub version_type: Option<String>,
 }
 
 // ==========================================
