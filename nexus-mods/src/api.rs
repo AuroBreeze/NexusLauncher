@@ -169,6 +169,8 @@ pub async fn get_version_files(id: &str) -> Result<Vec<VersionFile>, AnyError> {
     Ok(version.files)
 }
 
+// TODO: Resolve and download mod dependencies (e.g., sodium needs fabric-api)
+// TODO: Track mod download statistics (count, version, timestamp)
 // TODO: Adding downloads for specific versions, etc.
 /// Search for a mod and download the latest matching version.
 ///
@@ -205,9 +207,11 @@ pub async fn download_mod_to_instance(
     })
     .await?;
 
+    // TODO: Prefer stable release versions over beta/alpha
     let version = versions.first().ok_or("No matching version found")?;
     tracing::info!("📦 Latest version: {}", version.version_number);
 
+    // TODO: Use loader info from API response instead of filename matching
     let primary_file = version
         .files
         .iter()

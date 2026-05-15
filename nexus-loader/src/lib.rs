@@ -7,6 +7,7 @@ use nexus_core::AnyError;
 use std::path::PathBuf;
 
 // TODO: will be implemented
+// TODO: Track loader download statistics (loader type, version, game version, timestamp)
 // The configuration file needs to be updated; most importantly, the persistence settings for the main function need to be saved.
 pub async fn handle_loader(args: &LoaderArgs) -> Result<(), AnyError> {
     let loader_verison = get_latest_loader(&args.game_name).await;
