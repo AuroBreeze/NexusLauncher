@@ -169,6 +169,77 @@ pub async fn get_version_files(id: &str) -> Result<Vec<VersionFile>, AnyError> {
     Ok(version.files)
 }
 
+// TODO: Adding downloads for specific versions, etc.
+/// Search for a mod and download the latest matching version.
+///
+/// Files are placed directly in `clients/<instance>/mods/`.
+/// Uses SHA1 verification via [`nexus_version::download::download_and_verify`].
+pub async fn download_mod_to_instance(
+    query: &str,
+    game_version: Option<&str>,
+    loader: Option<&str>,
+    instance_name: &str,
+) -> Result<std::path::PathBuf, AnyError> {
+    let facets = game_version.map(|gv| vec![vec![format!("versions:{}", gv)]]);
+    let params = SearchParams {
+        query: query.to_string(),
+        limit: Some(1),
+        offset: None,
+        index: Some("downloads".to_string()),
+        facets,
+    };
+    let sr = search_project(&params).await?;
+    let hit = sr
+        .hits
+        .first()
+        .ok_or_else(|| format!("No mod found for '{}'", query))?;
+
+    tracing::info!("📦 Found: {} ({})", hit.title, hit.project_id);
+
+    let versions = list_project_versions(&ListVersionsParams {
+        id_or_slug: hit.project_id.clone(),
+        loaders: loader.map(|l| vec![l.to_string()]),
+        game_versions: game_version.map(|gv| vec![gv.to_string()]),
+        featured: None,
+        include_changelog: Some(false),
+    })
+    .await?;
+
+    let version = versions.first().ok_or("No matching version found")?;
+    tracing::info!("📦 Latest version: {}", version.version_number);
+
+    let primary_file = version
+        .files
+        .iter()
+        .find(|f| {
+            f.primary
+                && loader
+                    .map(|l| f.filename.to_lowercase().contains(&l.to_lowercase()))
+                    .unwrap_or(true)
+        })
+        .or_else(|| {
+            version.files.iter().find(|f| {
+                loader
+                    .map(|l| f.filename.to_lowercase().contains(&l.to_lowercase()))
+                    .unwrap_or(true)
+            })
+        })
+        .ok_or("No matching file found")?;
+
+    let dest_dir = nexus_core::get_clients_dir()
+        .join(instance_name)
+        .join("mods");
+
+    let dest = dest_dir.join(&primary_file.filename);
+    nexus_version::download::download_and_verify(
+        &primary_file.url,
+        &dest,
+        &primary_file.hashes.sha1,
+    )
+    .await?;
+    Ok(dest)
+}
+
 #[cfg(test)]
 #[path = "api_tests.rs"]
 mod tests;

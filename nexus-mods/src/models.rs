@@ -172,14 +172,14 @@ pub struct Hashes {
 /// A dependency declaration for a version.
 #[derive(Deserialize, Debug)]
 pub struct ModDependency {
-    /// The ID of the depended-on project, if any.
-    pub project_id: String,
+    /// The ID of the depended-on project, if any (nullable).
+    pub project_id: Option<String>,
 
-    /// The ID of the depended-on version, if any.
-    pub version_id: String,
+    /// The ID of the depended-on version, if any (nullable).
+    pub version_id: Option<String>,
 
-    /// The filename of the dependency, if bundled.
-    pub file_name: String,
+    /// The filename of the dependency, if bundled (nullable).
+    pub file_name: Option<String>,
 
     /// The type of this dependency.
     /// Allowed values: `”required”`, `”optional”`, `”incompatible”`, `”embedded”`.
