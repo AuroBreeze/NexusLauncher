@@ -48,6 +48,7 @@ cargo run -- launch 1.20.1
 - `install core --game-version <V>` — Download version (`--name` for custom directory)
 - `install loader <instance> --loader <fabric|quilt>` — Install mod loader
 - `install mod --query <Q>` — Search mods (`-g` version filter, `-l` count)
+- `install mod --query <Q> --download -i <instance> -L fabric` — Search and download mods (`-t` version type)
 
 ### Search
 - `search mod <query>` — Modrinth full-text search (`-l` limit, `-g` version, `-i` sort, `-o` offset)

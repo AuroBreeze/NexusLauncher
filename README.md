@@ -48,6 +48,7 @@ cargo run -- launch 1.20.1
 - `install core --game-version <V>` — 下载版本（`--name` 自定义目录名）
 - `install loader <instance> --loader <fabric|quilt>` — 安装 Mod 加载器
 - `install mod --query <Q>` — 搜索 Mod（`-g` 版本过滤, `-l` 数量）
+- `install mod --query <Q> --download -i <instance> -L fabric` — 搜索并下载 Mod（`-t` 版本类型）
 
 ### 搜索
 - `search mod <query>` — Modrinth 全文搜索（`-l` 数量, `-g` 版本, `-i` 排序, `-o` 分页）
