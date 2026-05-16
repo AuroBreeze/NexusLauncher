@@ -521,8 +521,7 @@ impl ModManifest {
             .join("mods");
         std::fs::create_dir_all(&dir)?;
         let path = dir.join("nexus_mods.toml");
-        let content = toml::to_string_pretty(self)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        let content = toml::to_string_pretty(self).map_err(std::io::Error::other)?;
         std::fs::write(path, content)
     }
 }
