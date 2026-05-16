@@ -13,6 +13,7 @@ pub async fn handle_mods(args: &ModArgs) -> Result<(), AnyError> {
                 .instance_name
                 .as_deref()
                 .ok_or("--instance-name is required with --download")?;
+            nexus_core::validate_instance_name(instance)?;
             let loader = args
                 .loader
                 .as_ref()

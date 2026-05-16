@@ -499,21 +499,18 @@ pub struct ModManifest {
 }
 
 impl ModManifest {
-    pub fn load(instance_name: &str) -> Self {
+    pub fn load(instance_name: &str) -> std::io::Result<Self> {
         let path = nexus_core::get_clients_dir()
             .join(instance_name)
             .join("mods")
             .join("nexus_mods.toml");
-        std::fs::read_to_string(&path)
-            .ok()
-            .and_then(|s| {
-                toml::from_str(&s)
-                    .map_err(|e| {
-                        tracing::warn!("Failed to parse mod manifest at {}: {}", path.display(), e);
-                    })
-                    .ok()
-            })
-            .unwrap_or_default()
+        match std::fs::read_to_string(&path) {
+            Ok(s) => toml::from_str(&s).map_err(|e| {
+                std::io::Error::other(format!("Failed to parse {}: {}", path.display(), e))
+            }),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
+            Err(e) => Err(e),
+        }
     }
 
     pub fn save(&self, instance_name: &str) -> std::io::Result<()> {

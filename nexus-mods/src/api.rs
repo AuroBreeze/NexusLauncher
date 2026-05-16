@@ -189,13 +189,17 @@ pub async fn download_mod_to_instance(
     version_type: Option<&str>,
     instance_name: &str,
 ) -> Result<std::path::PathBuf, AnyError> {
-    let facets = game_version.map(|gv| vec![vec![format!("versions:{}", gv)]]);
+    nexus_core::validate_instance_name(instance_name)?;
+    let mut facets = vec![vec!["project_type:mod".to_string()]];
+    if let Some(gv) = game_version {
+        facets.push(vec![format!("versions:{}", gv)]);
+    }
     let params = SearchParams {
         query: query.to_string(),
         limit: Some(1),
         offset: None,
         index: Some("downloads".to_string()),
-        facets,
+        facets: Some(facets),
     };
     let sr = search_project(&params).await?;
     let hit = sr
@@ -258,15 +262,8 @@ pub async fn download_mod_to_instance(
     let dest = dest_dir.join(&primary_file.filename);
     download_with_progress(&primary_file.url, &dest, &primary_file.hashes.sha1).await?;
 
-    // Record in mod manifest (skip if already installed)
-    let mut manifest = ModManifest::load(instance_name);
-    if manifest.mods.iter().any(|m| m.project_id == hit.project_id) {
-        tracing::info!(
-            "📋 {} already in manifest, skipping duplicate entry",
-            hit.title
-        );
-        return Ok(dest);
-    }
+    let mut manifest = ModManifest::load(instance_name)?;
+
     // Resolve dependency names concurrently
     let dep_futures: Vec<_> = version
         .dependencies
@@ -309,10 +306,22 @@ pub async fn download_mod_to_instance(
         },
         dependencies: deps,
     };
-    manifest.mods.push(entry);
+    if let Some(existing) = manifest
+        .mods
+        .iter_mut()
+        .find(|m| m.project_id == hit.project_id)
+    {
+        *existing = entry;
+        tracing::info!("📋 Updated {} in manifest", hit.title);
+    } else {
+        manifest.mods.push(entry);
+        tracing::info!(
+            "📋 Added {} to manifest ({} entries)",
+            hit.title,
+            manifest.mods.len()
+        );
+    }
     manifest.save(instance_name)?;
-
-    tracing::info!("📋 Mod manifest updated: {} entries", manifest.mods.len());
     Ok(dest)
 }
 
@@ -346,7 +355,7 @@ async fn download_with_progress(
         tokio::fs::create_dir_all(parent).await?;
     }
 
-    let response = reqwest::get(url).await?;
+    let response = reqwest::get(url).await?.error_for_status()?;
     let total_size = response.content_length().unwrap_or(0);
 
     let pb = ProgressBar::new(total_size);
