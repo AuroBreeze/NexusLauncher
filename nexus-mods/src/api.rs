@@ -1,6 +1,6 @@
 use crate::models::{
-    ListVersionsParams, Project, ProjectDependencies, SearchParams, SearchResult, Version,
-    VersionFile,
+    ListVersionsParams, ModEntry, ModManifest, Project, ProjectDependencies, SearchParams,
+    SearchResult, Version, VersionFile,
 };
 use futures_util::StreamExt;
 use nexus_core::AnyError;
@@ -250,6 +250,28 @@ pub async fn download_mod_to_instance(
 
     let dest = dest_dir.join(&primary_file.filename);
     download_with_progress(&primary_file.url, &dest, &primary_file.hashes.sha1).await?;
+
+    // Record in mod manifest
+    let mut manifest = ModManifest::load(instance_name);
+    let entry = ModEntry {
+        name: hit.title.clone(),
+        project_id: hit.project_id.clone(),
+        version_number: version.version_number.clone(),
+        version_type: version.version_type.clone(),
+        filename: primary_file.filename.clone(),
+        loader: loader.unwrap_or("unknown").to_string(),
+        game_version: game_version.unwrap_or("unknown").to_string(),
+        installed_at: {
+            let t = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default();
+            format!("{}", t.as_secs())
+        },
+    };
+    manifest.mods.push(entry);
+    manifest.save(instance_name)?;
+
+    tracing::info!("📋 Mod manifest updated: {} entries", manifest.mods.len());
     Ok(dest)
 }
 

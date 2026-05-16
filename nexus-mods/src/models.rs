@@ -1,4 +1,4 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 // ============================================================
 // Search endpoint — request parameters & response
@@ -463,4 +463,51 @@ pub struct VersionFile {
 
     /// A file signature, if available.
     pub signature: Option<String>,
+}
+
+// ============================================================
+// Mod manifest (per-instance download tracking)
+// ============================================================
+
+/// A record of an installed mod.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ModEntry {
+    pub name: String,
+    pub project_id: String,
+    pub version_number: String,
+    pub version_type: String,
+    pub filename: String,
+    pub loader: String,
+    pub game_version: String,
+    pub installed_at: String,
+}
+
+/// Manifest of installed mods, stored as TOML in `<instance>/mods/nexus_mods.toml`.
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ModManifest {
+    pub mods: Vec<ModEntry>,
+}
+
+impl ModManifest {
+    pub fn load(instance_name: &str) -> Self {
+        let path = nexus_core::get_clients_dir()
+            .join(instance_name)
+            .join("mods")
+            .join("nexus_mods.toml");
+        std::fs::read_to_string(&path)
+            .ok()
+            .and_then(|s| toml::from_str(&s).ok())
+            .unwrap_or_default()
+    }
+
+    pub fn save(&self, instance_name: &str) -> std::io::Result<()> {
+        let dir = nexus_core::get_clients_dir()
+            .join(instance_name)
+            .join("mods");
+        std::fs::create_dir_all(&dir)?;
+        let path = dir.join("nexus_mods.toml");
+        let content = toml::to_string_pretty(self)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        std::fs::write(path, content)
+    }
 }
