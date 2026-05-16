@@ -480,6 +480,15 @@ pub struct ModEntry {
     pub loader: String,
     pub game_version: String,
     pub installed_at: String,
+    pub dependencies: Vec<DepEntry>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DepEntry {
+    pub name: Option<String>,
+    pub project_id: Option<String>,
+    pub version_id: Option<String>,
+    pub dependency_type: String,
 }
 
 /// Manifest of installed mods, stored as TOML in `<instance>/mods/nexus_mods.toml`.

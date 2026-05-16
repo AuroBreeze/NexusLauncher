@@ -1,6 +1,6 @@
 use crate::models::{
-    ListVersionsParams, ModEntry, ModManifest, Project, ProjectDependencies, SearchParams,
-    SearchResult, Version, VersionFile,
+    DepEntry, ListVersionsParams, ModEntry, ModManifest, Project, ProjectDependencies,
+    SearchParams, SearchResult, Version, VersionFile,
 };
 use futures_util::StreamExt;
 use nexus_core::AnyError;
@@ -242,6 +242,8 @@ pub async fn download_mod_to_instance(
                     .unwrap_or(true)
             })
         })
+        .or_else(|| version.files.iter().find(|f| f.primary))
+        .or_else(|| version.files.first())
         .ok_or("No matching file found")?;
 
     let dest_dir = nexus_core::get_clients_dir()
@@ -253,6 +255,21 @@ pub async fn download_mod_to_instance(
 
     // Record in mod manifest
     let mut manifest = ModManifest::load(instance_name);
+    let mut deps = Vec::new();
+    for d in &version.dependencies {
+        let name = if let Some(ref pid) = d.project_id {
+            get_project(pid).await.ok().map(|p| p.title)
+        } else {
+            None
+        };
+        deps.push(DepEntry {
+            name,
+            project_id: d.project_id.clone(),
+            version_id: d.version_id.clone(),
+            dependency_type: d.dependency_type.clone(),
+        });
+    }
+
     let entry = ModEntry {
         name: hit.title.clone(),
         project_id: hit.project_id.clone(),
@@ -267,6 +284,7 @@ pub async fn download_mod_to_instance(
                 .unwrap_or_default();
             format!("{}", t.as_secs())
         },
+        dependencies: deps,
     };
     manifest.mods.push(entry);
     manifest.save(instance_name)?;
