@@ -2,6 +2,7 @@ use crate::models::{
     ListVersionsParams, Project, ProjectDependencies, SearchParams, SearchResult, Version,
     VersionFile,
 };
+use futures_util::StreamExt;
 use nexus_core::AnyError;
 use reqwest::Client;
 
@@ -248,13 +249,64 @@ pub async fn download_mod_to_instance(
         .join("mods");
 
     let dest = dest_dir.join(&primary_file.filename);
-    nexus_version::download::download_and_verify(
-        &primary_file.url,
-        &dest,
-        &primary_file.hashes.sha1,
-    )
-    .await?;
+    download_with_progress(&primary_file.url, &dest, &primary_file.hashes.sha1).await?;
     Ok(dest)
+}
+
+async fn download_with_progress(
+    url: &str,
+    path: &std::path::Path,
+    sha1: &str,
+) -> Result<(), AnyError> {
+    use indicatif::{ProgressBar, ProgressStyle};
+    use sha1::{Digest, Sha1};
+    use tokio::io::AsyncWriteExt;
+
+    if path.exists() {
+        let content = tokio::fs::read(path).await?;
+        let mut hasher = Sha1::new();
+        hasher.update(&content);
+        if hex::encode(hasher.finalize()) == sha1 {
+            tracing::info!("File already exists, skipping");
+            return Ok(());
+        }
+    }
+
+    if let Some(parent) = path.parent() {
+        tokio::fs::create_dir_all(parent).await?;
+    }
+
+    let response = reqwest::get(url).await?;
+    let total_size = response.content_length().unwrap_or(0);
+
+    let pb = ProgressBar::new(total_size);
+    pb.set_style(
+        ProgressStyle::with_template(
+            "  {spinner:.green} [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})",
+        )?
+        .progress_chars("#>-"),
+    );
+
+    let mut file = tokio::fs::File::create(path).await?;
+    let mut hasher = Sha1::new();
+    let mut stream = response.bytes_stream();
+    let mut downloaded: u64 = 0;
+
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk?;
+        file.write_all(&chunk).await?;
+        hasher.update(&chunk);
+        downloaded += chunk.len() as u64;
+        pb.set_position(downloaded);
+    }
+
+    pb.finish_with_message("Done");
+    let actual = hex::encode(hasher.finalize());
+    if actual != sha1 {
+        let _ = tokio::fs::remove_file(path).await;
+        return Err("SHA1 verification failed".into());
+    }
+    Ok(())
 }
 
 #[cfg(test)]

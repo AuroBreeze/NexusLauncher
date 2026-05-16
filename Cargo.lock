@@ -1189,12 +1189,16 @@ dependencies = [
 name = "nexus-mods"
 version = "0.1.0"
 dependencies = [
+ "futures-util",
+ "hex",
+ "indicatif",
  "nexus-cli",
  "nexus-core",
  "nexus-version",
  "reqwest",
  "serde",
  "serde_json",
+ "sha-1",
  "tokio",
  "tracing",
 ]
