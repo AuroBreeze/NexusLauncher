@@ -90,6 +90,40 @@ fn test_loaders_from_str_case_insensitive() {
     assert!(matches!("QuIlT".parse::<Loaders>(), Ok(Loaders::Quilt)));
 }
 
+// ============================================================
+// validate_instance_name
+// ============================================================
+
+#[test]
+fn test_valid_instance_names() {
+    assert!(validate_instance_name("1.20").is_ok());
+    assert!(validate_instance_name("my-instance").is_ok());
+    assert!(validate_instance_name("1.20-fabric").is_ok());
+}
+
+#[test]
+fn test_instance_name_empty() {
+    assert!(validate_instance_name("").is_err());
+}
+
+#[test]
+fn test_instance_name_with_path_separator() {
+    assert!(validate_instance_name("a/b").is_err());
+    assert!(validate_instance_name("a\\b").is_err());
+}
+
+#[test]
+fn test_instance_name_with_dot_dot() {
+    assert!(validate_instance_name("..").is_err());
+    assert!(validate_instance_name("../escape").is_err());
+    assert!(validate_instance_name("sub/../escape").is_err());
+}
+
+#[test]
+fn test_instance_name_absolute() {
+    assert!(validate_instance_name("/etc/passwd").is_err());
+}
+
 #[test]
 fn test_loaders_from_str_invalid() {
     assert!("invalid".parse::<Loaders>().is_err());

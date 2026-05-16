@@ -1,4 +1,4 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 // ============================================================
 // Search endpoint — request parameters & response
@@ -172,14 +172,14 @@ pub struct Hashes {
 /// A dependency declaration for a version.
 #[derive(Deserialize, Debug)]
 pub struct ModDependency {
-    /// The ID of the depended-on project, if any.
-    pub project_id: String,
+    /// The ID of the depended-on project, if any (nullable).
+    pub project_id: Option<String>,
 
-    /// The ID of the depended-on version, if any.
-    pub version_id: String,
+    /// The ID of the depended-on version, if any (nullable).
+    pub version_id: Option<String>,
 
-    /// The filename of the dependency, if bundled.
-    pub file_name: String,
+    /// The filename of the dependency, if bundled (nullable).
+    pub file_name: Option<String>,
 
     /// The type of this dependency.
     /// Allowed values: `”required”`, `”optional”`, `”incompatible”`, `”embedded”`.
@@ -463,4 +463,92 @@ pub struct VersionFile {
 
     /// A file signature, if available.
     pub signature: Option<String>,
+}
+
+// ============================================================
+// Mod manifest (per-instance download tracking)
+// ============================================================
+
+/// A record of an installed mod.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ModEntry {
+    pub name: String,
+    pub project_id: String,
+    pub version_number: String,
+    pub version_type: String,
+    pub filename: String,
+    pub sha1: String,
+    pub loader: String,
+    pub game_version: String,
+    pub installed_at: String,
+    pub dependencies: Vec<DepEntry>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DepEntry {
+    pub name: Option<String>,
+    pub project_id: Option<String>,
+    pub version_id: Option<String>,
+    pub dependency_type: String,
+}
+
+/// Manifest of installed mods, stored as TOML in `<instance>/mods/nexus_mods.toml`.
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ModManifest {
+    pub mods: Vec<ModEntry>,
+}
+
+impl ModManifest {
+    pub fn load(instance_name: &str) -> std::io::Result<Self> {
+        let path = nexus_core::get_clients_dir()
+            .join(instance_name)
+            .join("mods")
+            .join("nexus_mods.toml");
+        match std::fs::read_to_string(&path) {
+            Ok(s) => toml::from_str(&s).map_err(|e| {
+                std::io::Error::other(format!("Failed to parse {}: {}", path.display(), e))
+            }),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
+            Err(e) => Err(e),
+        }
+    }
+
+    pub fn save(&self, instance_name: &str) -> std::io::Result<()> {
+        let dir = nexus_core::get_clients_dir()
+            .join(instance_name)
+            .join("mods");
+        std::fs::create_dir_all(&dir)?;
+        let path = dir.join("nexus_mods.toml");
+        let content = toml::to_string_pretty(self).map_err(std::io::Error::other)?;
+        std::fs::write(path, content)
+    }
+
+    /// Verify all installed mods exist with correct SHA1.
+    /// Returns a list of (entry, status) where status is "ok", "missing", or "corrupt".
+    pub fn verify(&self, instance_name: &str) -> Vec<(&ModEntry, &str)> {
+        let dir = nexus_core::get_clients_dir()
+            .join(instance_name)
+            .join("mods");
+        self.mods
+            .iter()
+            .map(|m| {
+                let path = dir.join(&m.filename);
+                if !path.exists() {
+                    return (m, "missing");
+                }
+                if let Ok(data) = std::fs::read(&path) {
+                    use sha1::Digest;
+                    let mut h = sha1::Sha1::new();
+                    h.update(&data);
+                    if hex::encode(h.finalize()) == m.sha1 {
+                        (m, "ok")
+                    } else {
+                        (m, "corrupt")
+                    }
+                } else {
+                    (m, "missing")
+                }
+            })
+            .collect()
+    }
 }

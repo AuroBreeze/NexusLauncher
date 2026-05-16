@@ -56,6 +56,32 @@ pub fn get_library_path(relative_path: &str) -> PathBuf {
     path
 }
 
+/// Reject instance names that could escape the clients directory.
+pub fn validate_instance_name(name: &str) -> Result<(), String> {
+    if name.is_empty() {
+        return Err("instance name must not be empty".into());
+    }
+    if name.contains('/') || name.contains('\\') {
+        return Err(format!(
+            "invalid instance name '{}': must not contain path separators",
+            name
+        ));
+    }
+    if name.contains("..") {
+        return Err(format!(
+            "invalid instance name '{}': must not contain '..'",
+            name
+        ));
+    }
+    if std::path::Path::new(name).is_absolute() {
+        return Err(format!(
+            "invalid instance name '{}': must not be an absolute path",
+            name
+        ));
+    }
+    Ok(())
+}
+
 pub fn get_clients_dir() -> PathBuf {
     get_minecraft_dir().join("clients")
 }

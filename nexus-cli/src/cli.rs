@@ -106,7 +106,6 @@ pub enum InstallCommands {
     /// Download and install a loader (e.g., Fabric, Quilt)
     Loader(LoaderArgs),
 
-    // TODO: Add mod download functionality
     /// Search and download mods
     Mod(ModArgs),
 
@@ -161,9 +160,21 @@ pub struct ModArgs {
     #[arg(short, long)]
     pub game_version: Option<String>,
 
-    /// Flag to trigger the download process
+    /// Flag to trigger the download and install process
     #[arg(long, action = clap::ArgAction::SetTrue)]
     pub download: bool,
+
+    /// Game instance name to install the mod into (required with --download)
+    #[arg(short, long)]
+    pub instance_name: Option<String>,
+
+    /// Mod loader to filter versions for (required with --download)
+    #[arg(short = 'L', long)]
+    pub loader: Option<Loaders>,
+
+    /// Release channel: release, beta, or alpha (omit for latest regardless of channel)
+    #[arg(short = 't', long)]
+    pub version_type: Option<String>,
 }
 
 // ==========================================
