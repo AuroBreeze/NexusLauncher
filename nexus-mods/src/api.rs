@@ -298,6 +298,7 @@ pub async fn download_mod_to_instance(
         version_number: version.version_number.clone(),
         version_type: version.version_type.clone(),
         filename: primary_file.filename.clone(),
+        sha1: primary_file.hashes.sha1.clone(),
         loader: loader.unwrap_or("unknown").to_string(),
         game_version: game_version.unwrap_or("unknown").to_string(),
         installed_at: {

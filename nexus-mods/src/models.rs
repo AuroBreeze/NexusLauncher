@@ -477,6 +477,7 @@ pub struct ModEntry {
     pub version_number: String,
     pub version_type: String,
     pub filename: String,
+    pub sha1: String,
     pub loader: String,
     pub game_version: String,
     pub installed_at: String,
@@ -523,5 +524,34 @@ impl ModManifest {
         let path = dir.join("nexus_mods.toml");
         let content = toml::to_string_pretty(self).map_err(std::io::Error::other)?;
         std::fs::write(path, content)
+    }
+
+    /// Verify all installed mods exist with correct SHA1.
+    /// Returns a list of (entry, status) where status is "ok", "missing", or "corrupt".
+    pub fn verify(&self, instance_name: &str) -> Vec<(&ModEntry, &str)> {
+        let dir = nexus_core::get_clients_dir()
+            .join(instance_name)
+            .join("mods");
+        self.mods
+            .iter()
+            .map(|m| {
+                let path = dir.join(&m.filename);
+                if !path.exists() {
+                    return (m, "missing");
+                }
+                if let Ok(data) = std::fs::read(&path) {
+                    use sha1::Digest;
+                    let mut h = sha1::Sha1::new();
+                    h.update(&data);
+                    if hex::encode(h.finalize()) == m.sha1 {
+                        (m, "ok")
+                    } else {
+                        (m, "corrupt")
+                    }
+                } else {
+                    (m, "missing")
+                }
+            })
+            .collect()
     }
 }
