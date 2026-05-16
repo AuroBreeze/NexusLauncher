@@ -50,7 +50,8 @@ pub async fn search_project(params: &SearchParams) -> Result<SearchResult, AnyEr
         .get(&url)
         .header("User-Agent", "AuroBreeze/NexusLauncher/0.1.0")
         .send()
-        .await?;
+        .await?
+        .error_for_status()?;
     let result = resp.json::<SearchResult>().await?;
     tracing::info!("📦 Found {} mods matching your query", result.hits.len());
     tracing::info!("📦 Mod list: {:#?}", result.hits);
@@ -68,7 +69,8 @@ pub async fn get_project(id_or_slug: &str) -> Result<Project, AnyError> {
         .get(&url)
         .header("User-Agent", "AuroBreeze/NexusLauncher/0.1.0")
         .send()
-        .await?;
+        .await?
+        .error_for_status()?;
     let result = resp.json::<Project>().await?;
     tracing::info!("📦 Project: {} ({})", result.title, result.id);
     Ok(result)
@@ -106,7 +108,8 @@ pub async fn list_project_versions(params: &ListVersionsParams) -> Result<Vec<Ve
         .get(&url)
         .header("User-Agent", "AuroBreeze/NexusLauncher/0.1.0")
         .send()
-        .await?;
+        .await?
+        .error_for_status()?;
     let result = resp.json::<Vec<Version>>().await?;
     tracing::info!(
         "📦 Found {} versions for project {}",
@@ -130,7 +133,8 @@ pub async fn get_project_dependencies(id_or_slug: &str) -> Result<ProjectDepende
         .get(&url)
         .header("User-Agent", "AuroBreeze/NexusLauncher/0.1.0")
         .send()
-        .await?;
+        .await?
+        .error_for_status()?;
     let result = resp.json::<ProjectDependencies>().await?;
     tracing::info!(
         "📦 Found {} dependent projects and {} dependent versions",
@@ -151,7 +155,8 @@ pub async fn get_version(id: &str) -> Result<Version, AnyError> {
         .get(&url)
         .header("User-Agent", "AuroBreeze/NexusLauncher/0.1.0")
         .send()
-        .await?;
+        .await?
+        .error_for_status()?;
     let result = resp.json::<Version>().await?;
     tracing::info!("📦 Version: {} — {}", result.name, result.version_number);
     Ok(result)
@@ -253,22 +258,39 @@ pub async fn download_mod_to_instance(
     let dest = dest_dir.join(&primary_file.filename);
     download_with_progress(&primary_file.url, &dest, &primary_file.hashes.sha1).await?;
 
-    // Record in mod manifest
+    // Record in mod manifest (skip if already installed)
     let mut manifest = ModManifest::load(instance_name);
-    let mut deps = Vec::new();
-    for d in &version.dependencies {
-        let name = if let Some(ref pid) = d.project_id {
-            get_project(pid).await.ok().map(|p| p.title)
-        } else {
-            None
-        };
-        deps.push(DepEntry {
-            name,
-            project_id: d.project_id.clone(),
-            version_id: d.version_id.clone(),
-            dependency_type: d.dependency_type.clone(),
-        });
+    if manifest.mods.iter().any(|m| m.project_id == hit.project_id) {
+        tracing::info!(
+            "📋 {} already in manifest, skipping duplicate entry",
+            hit.title
+        );
+        return Ok(dest);
     }
+    // Resolve dependency names concurrently
+    let dep_futures: Vec<_> = version
+        .dependencies
+        .iter()
+        .map(|d| {
+            let pid = d.project_id.clone();
+            let vid = d.version_id.clone();
+            let dtype = d.dependency_type.clone();
+            async move {
+                let name = if let Some(ref pid) = pid {
+                    get_project(pid).await.ok().map(|p| p.title)
+                } else {
+                    None
+                };
+                DepEntry {
+                    name,
+                    project_id: pid,
+                    version_id: vid,
+                    dependency_type: dtype,
+                }
+            }
+        })
+        .collect();
+    let deps = futures_util::future::join_all(dep_futures).await;
 
     let entry = ModEntry {
         name: hit.title.clone(),
@@ -282,7 +304,7 @@ pub async fn download_mod_to_instance(
             let t = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default();
-            format!("{}", t.as_secs())
+            t.as_secs().to_string()
         },
         dependencies: deps,
     };
@@ -300,12 +322,19 @@ async fn download_with_progress(
 ) -> Result<(), AnyError> {
     use indicatif::{ProgressBar, ProgressStyle};
     use sha1::{Digest, Sha1};
-    use tokio::io::AsyncWriteExt;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     if path.exists() {
-        let content = tokio::fs::read(path).await?;
+        let mut file = tokio::fs::File::open(path).await?;
         let mut hasher = Sha1::new();
-        hasher.update(&content);
+        let mut buf = [0u8; 8192];
+        loop {
+            let n = file.read(&mut buf).await?;
+            if n == 0 {
+                break;
+            }
+            hasher.update(&buf[..n]);
+        }
         if hex::encode(hasher.finalize()) == sha1 {
             tracing::info!("File already exists, skipping");
             return Ok(());

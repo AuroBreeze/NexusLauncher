@@ -172,8 +172,8 @@ pub struct ModArgs {
     #[arg(short = 'L', long)]
     pub loader: Option<Loaders>,
 
-    /// Release channel: release (stable), beta, or alpha (default: release)
-    #[arg(short = 't', long, default_value = "release")]
+    /// Release channel: release, beta, or alpha (omit for latest regardless of channel)
+    #[arg(short = 't', long)]
     pub version_type: Option<String>,
 }
 

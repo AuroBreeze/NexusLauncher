@@ -505,7 +505,13 @@ impl ModManifest {
             .join("nexus_mods.toml");
         std::fs::read_to_string(&path)
             .ok()
-            .and_then(|s| toml::from_str(&s).ok())
+            .and_then(|s| {
+                toml::from_str(&s)
+                    .map_err(|e| {
+                        tracing::warn!("Failed to parse mod manifest at {}: {}", path.display(), e);
+                    })
+                    .ok()
+            })
             .unwrap_or_default()
     }
 
