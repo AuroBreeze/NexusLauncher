@@ -26,6 +26,7 @@ project_id = "AANobbMI"
 version_number = "mc1.20-0.4.10"
 version_type = "release"
 filename = "sodium-fabric-mc1.20-0.4.10+build.27.jar"
+sha1 = "b11e18bb09f06c3f8028fa2c090072976fa326d0"
 loader = "fabric"
 game_version = "1.20"
 
@@ -35,7 +36,8 @@ project_id = "P7dR8mSH"
 dependency_type = "required"
 ```
 
-- Records mod name, version, loader, game version, and resolved dependency names
+- Records SHA1 hash for integrity verification (`ModManifest::verify()` checks all files)
+- Tracks dependency names, versions, and loaders
 - Deduplicates on re-install
 
 ### Fixes & Improvements
