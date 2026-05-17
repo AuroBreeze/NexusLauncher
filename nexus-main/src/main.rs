@@ -25,6 +25,7 @@ use nexus_mods::handle_mods;
 use nexus_mods::models::SearchParams;
 
 use nexus_core::*;
+use nexus_list::{handle_list_info, handle_list_instances, handle_list_users};
 
 use nexus_version::download::download_and_verify;
 use nexus_version::models::VersionDetail;
@@ -64,6 +65,12 @@ async fn main() -> Result<(), AnyError> {
             SearchCommands::Mod(search_args) => handle_search_mod(&search_args).await?,
             SearchCommands::Java(search_args) => handle_search_java(&search_args).await?,
             SearchCommands::User(search_args) => handle_search_user(&search_args).await?,
+        },
+
+        Some(Commands::List(args)) => match args.command {
+            ListCommands::Instances => handle_list_instances().await?,
+            ListCommands::Users => handle_list_users().await?,
+            ListCommands::Info(info_args) => handle_list_info(&info_args).await?,
         },
 
         Some(Commands::Set(args)) => handle_set(&args).await?,
@@ -293,8 +300,14 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
         .and_then(|data| serde_json::from_str::<FabricProfile>(&data).ok()); // Try parse JSON
     // dbg!(&fabric_profile);
 
-    let data = std::fs::read_to_string(game_version_json_path).unwrap();
-    let detail: VersionDetail = serde_json::from_str(&data).unwrap();
+    let data = std::fs::read_to_string(&game_version_json_path).map_err(|_| {
+        format!(
+            "Instance '{}' not found. Run `nexus install core --game-version <version>` to install it.",
+            args.instance_name
+        )
+    })?;
+    let detail: VersionDetail =
+        serde_json::from_str(&data).map_err(|e| format!("Failed to parse version.json: {}", e))?;
     let version_id = detail.id;
     let required_java_version = detail.java_version.major_version as u32;
 

@@ -1150,6 +1150,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "nexus-list"
+version = "0.1.0"
+dependencies = [
+ "nexus-cli",
+ "nexus-config",
+ "nexus-core",
+ "nexus-loader",
+ "nexus-version",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "nexus-loader"
 version = "0.1.0"
 dependencies = [
@@ -1174,6 +1189,7 @@ dependencies = [
  "nexus-core",
  "nexus-java",
  "nexus-launch",
+ "nexus-list",
  "nexus-loader",
  "nexus-mods",
  "nexus-version",
