@@ -15,6 +15,7 @@ members = [
     "nexus-loader",
     "nexus-mods",
     "nexus-core",
+    "nexus-list",
 ]
 
 [workspace.dependencies]
