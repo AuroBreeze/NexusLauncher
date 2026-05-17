@@ -15,8 +15,8 @@ repos:
     hooks:
     -   id: cargo-fmt
         name: cargo fmt
-        description: Check Rust code formatting (fast)
-        entry: cargo fmt --all -- --check
+        description: Format Rust code and stage changes
+        entry: bash -c "cargo fmt --all && git add -u"
         language: system
         files: \.rs$
         pass_filenames: false

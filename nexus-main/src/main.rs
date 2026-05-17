@@ -11,7 +11,7 @@ use nexus_config::handle_set;
 use nexus_config::models::{LaunchConfig, UserConfig};
 
 use nexus_java::handle_java;
-use nexus_java::java::{resolve_java_executable, scan_local_java_environments};
+use nexus_java::java::resolve_java_executable;
 
 use nexus_launch::launcher::start_game;
 use nexus_launch::models::{LaunchContext, UserContext};
@@ -20,12 +20,14 @@ use nexus_loader::fabric::find_fabric_json;
 use nexus_loader::handle_loader;
 use nexus_loader::models::FabricProfile;
 
-use nexus_mods::api::search_project;
 use nexus_mods::handle_mods;
-use nexus_mods::models::SearchParams;
 
 use nexus_core::*;
 use nexus_list::{handle_list_info, handle_list_instances, handle_list_users};
+use nexus_search::{
+    handle_search_core, handle_search_java, handle_search_loader, handle_search_mod,
+    handle_search_user,
+};
 use nexus_uninstall::{handle_uninstall_instance, handle_uninstall_mod};
 
 use nexus_version::download::download_and_verify;
@@ -34,7 +36,6 @@ use nexus_version::source::{
     download_assets, download_libraries, fetch_version_detail, obtain_manifest,
 };
 use nexus_version::verify_game_integrity;
-use serde::Deserialize;
 
 #[tokio::main]
 async fn main() -> Result<(), AnyError> {
@@ -65,6 +66,8 @@ async fn main() -> Result<(), AnyError> {
         Some(Commands::Search(args)) => match args.command {
             SearchCommands::Mod(search_args) => handle_search_mod(&search_args).await?,
             SearchCommands::Java(search_args) => handle_search_java(&search_args).await?,
+            SearchCommands::Core(search_args) => handle_search_core(&search_args).await?,
+            SearchCommands::Loader(search_args) => handle_search_loader(&search_args).await?,
             SearchCommands::User(search_args) => handle_search_user(&search_args).await?,
         },
 
@@ -85,124 +88,6 @@ async fn main() -> Result<(), AnyError> {
         None => {
             println!("Please specify a command. Use --help");
         }
-    }
-
-    Ok(())
-}
-
-async fn handle_search_mod(args: &SearchModArgs) -> Result<(), AnyError> {
-    let facets = args
-        .game_version
-        .as_ref()
-        .map(|gv| vec![vec![format!("versions:{}", gv)]]);
-
-    let params = SearchParams {
-        query: args.query.clone(),
-        limit: Some(args.limit),
-        offset: args.offset,
-        index: args.index.clone(),
-        facets,
-    };
-    search_project(&params).await?;
-    Ok(())
-}
-
-async fn handle_search_java(args: &SearchJavaArgs) -> Result<(), AnyError> {
-    if args.scan {
-        tracing::info!("Scanning for installed Java runtimes...");
-        let javas = scan_local_java_environments(None).await;
-
-        // Update the config cache
-        let mut config = LaunchConfig::load().await;
-        for j in &javas {
-            config.java_paths.insert(j.major_version, j.path.clone());
-        }
-        config.save().await?;
-
-        tracing::info!("Found {} Java installation(s):", javas.len());
-        for j in &javas {
-            if let Some(filter) = args.version
-                && j.major_version != filter
-            {
-                continue;
-            }
-            tracing::info!(
-                "  Java {} ({}) → {}",
-                j.major_version,
-                j.full_version,
-                j.path.display()
-            );
-        }
-    } else {
-        // Read from cached config
-        let config = LaunchConfig::load().await;
-        if config.java_paths.is_empty() {
-            tracing::warn!("No cached Java installations. Run with --scan to search the system.");
-            return Ok(());
-        }
-
-        let mut versions: Vec<_> = config.java_paths.iter().collect();
-        versions.sort_by_key(|(v, _)| *v);
-
-        tracing::info!("Cached Java installation(s):",);
-        for (major_version, path) in &versions {
-            if let Some(filter) = args.version
-                && *major_version != &filter
-            {
-                continue;
-            }
-            tracing::info!("  Java {} → {}", major_version, path.display());
-        }
-    }
-
-    Ok(())
-}
-
-#[derive(Debug, Deserialize)]
-struct UserCacheEntry {
-    name: String,
-    uuid: String,
-    #[serde(rename = "expiresOn")]
-    expires_on: String,
-}
-
-async fn handle_search_user(args: &SearchUserArgs) -> Result<(), AnyError> {
-    let path = get_clients_dir()
-        .join(&args.instance)
-        .join("usercache.json");
-
-    let content = match std::fs::read_to_string(&path) {
-        Ok(c) => c,
-        Err(_) => {
-            tracing::warn!(
-                "usercache.json not found in instance '{}'. \
-                 Launch the game and join a world first.",
-                args.instance
-            );
-            return Ok(());
-        }
-    };
-
-    let entries: Vec<UserCacheEntry> = serde_json::from_str(&content)?;
-
-    if entries.is_empty() {
-        tracing::info!("No cached user profiles in instance '{}'.", args.instance);
-        return Ok(());
-    }
-
-    tracing::info!(
-        "Found {} cached profile(s) in instance '{}':",
-        entries.len(),
-        args.instance
-    );
-    for (i, entry) in entries.iter().enumerate() {
-        tracing::info!(
-            "  [{}] name: {}, uuid: {}, expires: {}",
-            i + 1,
-            entry.name,
-            entry.uuid,
-            entry.expires_on
-        );
     }
 
     Ok(())

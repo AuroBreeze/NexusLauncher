@@ -17,6 +17,7 @@ members = [
     "nexus-core",
     "nexus-list",
     "nexus-uninstall",
+    "nexus-search",
 ]
 
 [workspace.dependencies]
