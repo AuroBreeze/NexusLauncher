@@ -34,10 +34,10 @@ pub async fn handle_search_core(args: &SearchCoreArgs) -> Result<(), AnyError> {
             }
             true
         })
-        .take(args.limit)
         .collect();
 
     results.sort_by(|a, b| b.id.cmp(&a.id));
+    results.truncate(args.limit);
 
     tracing::info!(
         "Found {} version(s){}:",
@@ -81,7 +81,18 @@ async fn search_quilt_loader(args: &SearchLoaderVersionArgs) -> Result<(), AnyEr
     let versions =
         nexus_loader::fabric::get_quilt_loader_versions(args.game_version.as_deref()).await?;
 
-    let filtered: Vec<_> = versions.iter().take(args.limit).collect();
+    let filtered: Vec<_> = versions
+        .iter()
+        .filter(|v| {
+            if args.stable {
+                let lower = v.version.to_lowercase();
+                !lower.contains("beta") && !lower.contains("alpha")
+            } else {
+                true
+            }
+        })
+        .take(args.limit)
+        .collect();
 
     tracing::info!("Quilt loader version(s): {}", filtered.len());
     for v in &filtered {
@@ -164,13 +175,20 @@ pub async fn handle_search_user(args: &SearchUserArgs) -> Result<(), AnyError> {
 
     let content = match std::fs::read_to_string(&path) {
         Ok(c) => c,
-        Err(_) => {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
             tracing::warn!(
                 "usercache.json not found in instance '{}'. \
                  Launch the game and join a world first.",
                 args.instance
             );
             return Ok(());
+        }
+        Err(e) => {
+            return Err(format!(
+                "Failed to read usercache.json in instance '{}': {}",
+                args.instance, e
+            )
+            .into());
         }
     };
 
