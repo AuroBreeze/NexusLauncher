@@ -1,4 +1,4 @@
-use super::models::{FabricLoaderResponse, FabricProfile};
+use super::models::{FabricLoaderResponse, FabricLoaderVersion, FabricProfile, QuiltLoaderVersion};
 use nexus_core::AnyError;
 use nexus_core::*;
 use nexus_version::download::pool_download_and_link;
@@ -146,4 +146,42 @@ pub async fn install_fabric_libraries(
     }
 
     Ok(classpath)
+}
+
+/// Fetch Fabric loader versions, optionally filtered by game version.
+/// The API returns different shapes depending on whether a game version is given.
+pub async fn get_fabric_loader_versions(
+    game_version: Option<&str>,
+) -> Result<Vec<FabricLoaderVersion>, AnyError> {
+    if let Some(gv) = game_version {
+        let url = format!("https://meta.fabricmc.net/v2/versions/loader/{}", gv);
+        let resp: Vec<FabricLoaderResponse> = reqwest::get(&url).await?.json().await?;
+        Ok(resp
+            .into_iter()
+            .map(|r| FabricLoaderVersion {
+                version: r.loader.version,
+                stable: r.loader.stable,
+            })
+            .collect())
+    } else {
+        let url = "https://meta.fabricmc.net/v2/versions/loader";
+        let resp = reqwest::get(url).await?.json().await?;
+        Ok(resp)
+    }
+}
+
+/// Fetch Quilt loader versions, optionally filtered by game version.
+pub async fn get_quilt_loader_versions(
+    game_version: Option<&str>,
+) -> Result<Vec<QuiltLoaderVersion>, AnyError> {
+    let url = if let Some(gv) = game_version {
+        format!(
+            "https://meta.quiltmc.org/v3/versions/loader?game_version={}",
+            gv
+        )
+    } else {
+        "https://meta.quiltmc.org/v3/versions/loader".to_string()
+    };
+    let resp = reqwest::get(&url).await?.json().await?;
+    Ok(resp)
 }

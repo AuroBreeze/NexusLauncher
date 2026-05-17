@@ -51,6 +51,8 @@ pub enum SearchCommands {
     Java(SearchJavaArgs),
     /// Search for available Minecraft versions
     Core(SearchCoreArgs),
+    /// Search for loader versions
+    Loader(SearchLoaderArgs),
     /// List cached user profiles from a game instance's usercache.json
     User(SearchUserArgs),
 }
@@ -73,6 +75,35 @@ pub struct SearchCoreArgs {
 
     /// Maximum number of results (default 20)
     #[arg(short, long, default_value = "20")]
+    pub limit: usize,
+}
+
+#[derive(Args)]
+pub struct SearchLoaderArgs {
+    #[command(subcommand)]
+    pub loader: SearchLoaderType,
+}
+
+#[derive(Subcommand)]
+pub enum SearchLoaderType {
+    /// Search Fabric loader versions
+    Fabric(SearchLoaderVersionArgs),
+    /// Search Quilt loader versions
+    Quilt(SearchLoaderVersionArgs),
+}
+
+#[derive(Args, Debug)]
+pub struct SearchLoaderVersionArgs {
+    /// Filter by game version (e.g. "1.21.4")
+    #[arg(short, long)]
+    pub game_version: Option<String>,
+
+    /// Show only stable versions
+    #[arg(short, long, action = clap::ArgAction::SetTrue)]
+    pub stable: bool,
+
+    /// Maximum number of results (default 10)
+    #[arg(short, long, default_value = "10")]
     pub limit: usize,
 }
 

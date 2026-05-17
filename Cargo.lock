@@ -1230,6 +1230,7 @@ dependencies = [
  "nexus-config",
  "nexus-core",
  "nexus-java",
+ "nexus-loader",
  "nexus-mods",
  "nexus-version",
  "serde",

@@ -10,6 +10,7 @@ nexus-config = { path = "../nexus-config" }
 nexus-java = { path = "../nexus-java" }
 nexus-mods = { path = "../nexus-mods" }
 nexus-version = { path = "../nexus-version" }
+nexus-loader = { path = "../nexus-loader" }
 
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }

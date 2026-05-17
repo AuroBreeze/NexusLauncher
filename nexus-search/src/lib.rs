@@ -1,4 +1,7 @@
-use nexus_cli::cli::{SearchCoreArgs, SearchJavaArgs, SearchModArgs, SearchUserArgs};
+use nexus_cli::cli::{
+    SearchCoreArgs, SearchJavaArgs, SearchLoaderArgs, SearchLoaderType, SearchLoaderVersionArgs,
+    SearchModArgs, SearchUserArgs,
+};
 use nexus_config::config::Config;
 use nexus_config::models::LaunchConfig;
 use nexus_core::{AnyError, get_clients_dir};
@@ -43,6 +46,46 @@ pub async fn handle_search_core(args: &SearchCoreArgs) -> Result<(), AnyError> {
     );
     for v in &results {
         tracing::info!("  {} ({})", v.id, v.version_type);
+    }
+
+    Ok(())
+}
+
+pub async fn handle_search_loader(args: &SearchLoaderArgs) -> Result<(), AnyError> {
+    match &args.loader {
+        SearchLoaderType::Fabric(a) => search_fabric_loader(a).await,
+        SearchLoaderType::Quilt(a) => search_quilt_loader(a).await,
+    }
+}
+
+async fn search_fabric_loader(args: &SearchLoaderVersionArgs) -> Result<(), AnyError> {
+    let versions =
+        nexus_loader::fabric::get_fabric_loader_versions(args.game_version.as_deref()).await?;
+
+    let filtered: Vec<_> = versions
+        .iter()
+        .filter(|v| !args.stable || v.stable)
+        .take(args.limit)
+        .collect();
+
+    tracing::info!("Fabric loader version(s): {}", filtered.len());
+    for v in &filtered {
+        let marker = if v.stable { "" } else { " (beta)" };
+        tracing::info!("  {}{}", v.version, marker);
+    }
+
+    Ok(())
+}
+
+async fn search_quilt_loader(args: &SearchLoaderVersionArgs) -> Result<(), AnyError> {
+    let versions =
+        nexus_loader::fabric::get_quilt_loader_versions(args.game_version.as_deref()).await?;
+
+    let filtered: Vec<_> = versions.iter().take(args.limit).collect();
+
+    tracing::info!("Quilt loader version(s): {}", filtered.len());
+    for v in &filtered {
+        tracing::info!("  {}", v.version);
     }
 
     Ok(())

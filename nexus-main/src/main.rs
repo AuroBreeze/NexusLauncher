@@ -24,7 +24,10 @@ use nexus_mods::handle_mods;
 
 use nexus_core::*;
 use nexus_list::{handle_list_info, handle_list_instances, handle_list_users};
-use nexus_search::{handle_search_core, handle_search_java, handle_search_mod, handle_search_user};
+use nexus_search::{
+    handle_search_core, handle_search_java, handle_search_loader, handle_search_mod,
+    handle_search_user,
+};
 use nexus_uninstall::{handle_uninstall_instance, handle_uninstall_mod};
 
 use nexus_version::download::download_and_verify;
@@ -64,6 +67,7 @@ async fn main() -> Result<(), AnyError> {
             SearchCommands::Mod(search_args) => handle_search_mod(&search_args).await?,
             SearchCommands::Java(search_args) => handle_search_java(&search_args).await?,
             SearchCommands::Core(search_args) => handle_search_core(&search_args).await?,
+            SearchCommands::Loader(search_args) => handle_search_loader(&search_args).await?,
             SearchCommands::User(search_args) => handle_search_user(&search_args).await?,
         },
 
