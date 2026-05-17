@@ -1,20 +1,10 @@
 use nexus_cli::cli::ListInfoArgs;
 use nexus_config::config::Config;
 use nexus_config::models::{LaunchConfig, UserConfig};
-use nexus_core::{AnyError, get_clients_dir, validate_instance_name};
+use nexus_core::{AnyError, UserCacheEntry, get_clients_dir, validate_instance_name};
 use nexus_loader::fabric::find_fabric_json;
 use nexus_loader::models::FabricProfile;
 use nexus_version::models::VersionDetail;
-use serde::Deserialize;
-
-#[derive(Debug, Deserialize)]
-#[allow(dead_code)]
-struct UserCacheEntry {
-    name: String,
-    uuid: String,
-    #[serde(rename = "expiresOn")]
-    expires_on: String,
-}
 
 pub async fn handle_list_instances() -> Result<(), AnyError> {
     let clients_dir = get_clients_dir();

@@ -1,6 +1,7 @@
 use clap::ValueEnum;
 use home::home_dir;
 use regex::Regex;
+use serde::Deserialize;
 use std::fmt::Display;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -137,6 +138,15 @@ pub fn maven_to_path(name: &str) -> String {
         "{}/{}/{}/{}-{}.jar",
         group, artifact, version, artifact, version
     )
+}
+
+/// Cached user profile entry from a game instance's usercache.json.
+#[derive(Debug, Deserialize)]
+pub struct UserCacheEntry {
+    pub name: String,
+    pub uuid: String,
+    #[serde(rename = "expiresOn")]
+    pub expires_on: String,
 }
 
 #[derive(Debug, Clone)]

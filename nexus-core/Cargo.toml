@@ -9,3 +9,4 @@ home = {workspace = true}
 tracing = {workspace = true}
 regex = {workspace = true}
 tokio =  {workspace = true}
+serde = { workspace = true, features = ["derive"] }

@@ -30,11 +30,7 @@ use nexus_search::{
 };
 use nexus_uninstall::{handle_uninstall_instance, handle_uninstall_mod};
 
-use nexus_version::download::download_and_verify;
 use nexus_version::models::VersionDetail;
-use nexus_version::source::{
-    download_assets, download_libraries, fetch_version_detail, obtain_manifest,
-};
 use nexus_version::verify_game_integrity;
 
 #[tokio::main]
@@ -95,55 +91,9 @@ async fn main() -> Result<(), AnyError> {
 
 async fn handle_core(args: &CoreArgs) -> Result<(), AnyError> {
     if let Some(game_version) = &args.game_version {
-        let target_version = game_version;
-
-        // Use --name if provided, otherwise fall back to the game version
-        let dir_name = args.name.as_deref().unwrap_or(target_version);
-        let version_dir = get_clients_dir().join(dir_name);
-        let local_json_path = version_dir.join("version.json");
-
-        if local_json_path.exists() {
-            // Directory already exists — verify integrity and re-download any missing/corrupt files
-            tracing::info!(
-                "Game directory '{}' already exists, verifying integrity...",
-                dir_name
-            );
-            verify_game_integrity(&version_dir).await?;
-        } else {
-            // Fresh download
-            let manifest = obtain_manifest().await?;
-
-            let v_info = manifest
-                .versions
-                .iter()
-                .find(|v| v.id == *target_version)
-                .ok_or_else(|| format!("Version {} not found in manifest", target_version))?;
-
-            tracing::info!("Fetching version data for {}...", target_version);
-            let detail = fetch_version_detail(&v_info.url).await?;
-
-            tokio::fs::create_dir_all(&version_dir).await?;
-
-            download_and_verify(
-                &detail.downloads.client.url,
-                &version_dir.join(format!("{}.jar", target_version)),
-                detail.downloads.client.sha1.as_str(),
-            )
-            .await?;
-
-            download_libraries(&detail).await?;
-            download_assets(&detail).await?;
-
-            // Save version.json last — it serves as the "download complete" sentinel.
-            // If interrupted before this point, the directory won't have version.json,
-            // so the next attempt will re-download (skipping already-valid files via SHA1 check).
-            let json_content = serde_json::to_string_pretty(&detail)?;
-            tokio::fs::write(&local_json_path, json_content).await?;
-        }
-
-        tracing::info!("All core components for {} are ready!", target_version);
+        let dir_name = args.name.as_deref().unwrap_or(game_version);
+        nexus_version::install_game_core(game_version, dir_name).await?;
     }
-
     Ok(())
 }
 
@@ -199,7 +149,6 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
     })?;
     let detail: VersionDetail =
         serde_json::from_str(&data).map_err(|e| format!("Failed to parse version.json: {}", e))?;
-    let version_id = detail.id;
     let required_java_version = detail.java_version.major_version as u32;
 
     verify_game_integrity(game_path).await?;
@@ -209,29 +158,15 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
             .await?;
 
     // Construct the launch context and start the process
-    let launch_context = LaunchContext {
-        game_path: PathBuf::from(game_path),
-        version_id,
-        java_path: Some(final_java_executable),
-        user: UserContext {
-            username,
-            uuid,
-            access_token: Some(access_token),
-        },
-        max_memory: Some(args.max_memory),
-        main_class: detail.main_class.clone(),
-        libraries: detail
-            .libraries
-            .iter()
-            .filter_map(|lib| {
-                // Use filter_map to safely handle the Option and avoid unwrap()
-                let artifact = lib.downloads.artifact.as_ref()?;
-                Some(get_library_path(&artifact.path))
-            })
-            .collect(),
-        asset_index_id: detail.asset_index.id.clone(),
-        fabric_loader: fabric_profile,
-    };
+    let user = UserContext::new(username, uuid, access_token);
+    let launch_context = LaunchContext::from_detail(
+        PathBuf::from(game_path),
+        &detail,
+        user,
+        final_java_executable,
+        args.max_memory,
+        fabric_profile,
+    );
 
     start_game(launch_context)?;
 

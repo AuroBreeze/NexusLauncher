@@ -4,21 +4,11 @@ use nexus_cli::cli::{
 };
 use nexus_config::config::Config;
 use nexus_config::models::LaunchConfig;
-use nexus_core::{AnyError, get_clients_dir};
+use nexus_core::{AnyError, UserCacheEntry, get_clients_dir};
 use nexus_java::java::scan_local_java_environments;
 use nexus_mods::api::search_project;
 use nexus_mods::models::SearchParams;
 use nexus_version::source::obtain_manifest;
-use serde::Deserialize;
-
-#[derive(Debug, Deserialize)]
-#[allow(dead_code)]
-struct UserCacheEntry {
-    name: String,
-    uuid: String,
-    #[serde(rename = "expiresOn")]
-    expires_on: String,
-}
 
 pub async fn handle_search_core(args: &SearchCoreArgs) -> Result<(), AnyError> {
     let manifest = obtain_manifest().await?;
