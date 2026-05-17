@@ -1,65 +1,49 @@
-# Nexus Launcher v0.1.1
+# Nexus Launcher v0.1.2
 
 ## What's New
 
-### Mod Download & Install
+### List Command
 
 ```
-nexus install mod -q sodium --download -i 1.20 -L fabric
+nexus list instances
+nexus list users
+nexus list info 1.21.4 -lm
 ```
 
-- Search Modrinth for mods and download directly to your instance's `mods/` folder
-- **Auto game version detection** — reads `version.json` from the instance, no need to pass `-g` manually
-- **Loader filtering** — `-L fabric|quilt` to match the right mod variant
-- **Release channel filter** — `-t release|beta|alpha` to pick stable or pre-release builds
-- **SHA1 verification** — downloaded files are checked against Modrinth's published hash
-- **Progress bar** — visual download progress with size and ETA
+- `instances` — list all game instances with version and Java info
+- `users` — show online/offline profiles and UUID mappings
+- `info <name>` — instance details: version, loader type, mods count, cached users
+- `-l` flag shows loader type (fabric/quilt), `-m` lists individual mod filenames
 
-### Mod Manifest
+### Uninstall Command
 
-Each instance now maintains a `nexus_mods.toml` tracking all installed mods:
-
-```toml
-[[mods]]
-name = "Sodium"
-project_id = "AANobbMI"
-version_number = "mc1.20-0.4.10"
-version_type = "release"
-filename = "sodium-fabric-mc1.20-0.4.10+build.27.jar"
-sha1 = "b11e18bb09f06c3f8028fa2c090072976fa326d0"
-loader = "fabric"
-game_version = "1.20"
-
-[[mods.dependencies]]
-name = "Fabric API"
-project_id = "P7dR8mSH"
-dependency_type = "required"
+```
+nexus uninstall instance 1.20
+nexus uninstall mod sodium -i 1.20
 ```
 
-- Records SHA1 hash for integrity verification (`ModManifest::verify()` checks all files)
-- Tracks dependency names, versions, and loaders
-- Deduplicates on re-install
+- `instance <name>` — remove an entire game instance directory
+- `mod <query> -i <instance>` — remove mods by name match (case-insensitive)
+
+### Search: Core Versions & Loader Versions
+
+```
+nexus search core -v 1.21 -s -l 10
+nexus search loader fabric -g 1.21.4 -s
+nexus search loader quilt -s
+```
+
+- `search core` — fetch version list from Mojang manifest, filter by prefix or stable-only
+- `search loader fabric|quilt` — fetch loader versions from meta APIs
+- Supports `-g` game version filter, `-s` stable-only, `-l` limit
 
 ### Fixes & Improvements
 
-- HTTP status code checks on all API calls (no more cryptic deserialization errors on 404/429)
-- Streaming SHA1 pre-check (no more loading full JARs into memory)
-- Concurrent dependency name resolution
-- Warn on corrupt manifest instead of silently discarding
+- `handle_launch` no longer panics on missing `version.json` — reports the required `install core` command
+- Error handling: `usercache.json` read errors now distinguish `NotFound` from permission/IO failures
+- Removed unused `--list` flag from `install core`
 
-### Other
+### Internal
 
-- Added TODOs for: dependency auto-download, download statistics, specific version targeting, loader-based file matching
-
-## Usage
-
-```bash
-# Basic download
-nexus install mod -q sodium --download -i 1.20 -L fabric
-
-# Beta version
-nexus install mod -q sodium --download -i 1.20 -L fabric -t beta
-
-# Search without downloading
-nexus install mod -q shader -g 1.21.4 -l 10
-```
+- `nexus-list`, `nexus-uninstall`, `nexus-search` — handler crates extracted from `nexus-main`
+- `cargo fmt` pre-commit hook now auto-formats and stages changes
