@@ -54,7 +54,16 @@ pub async fn search_project(params: &SearchParams) -> Result<SearchResult, AnyEr
         .error_for_status()?;
     let result = resp.json::<SearchResult>().await?;
     tracing::info!("📦 Found {} mods matching your query", result.hits.len());
-    tracing::info!("📦 Mod list: {:#?}", result.hits);
+    for hit in &result.hits {
+        tracing::info!(
+            "  • {} ({}) — {} — by {}",
+            hit.title,
+            hit.project_id,
+            hit.description,
+            hit.author
+        );
+    }
+    tracing::debug!("📦 Mod list: {:#?}", result.hits);
     Ok(result)
 }
 
@@ -231,8 +240,17 @@ pub async fn download_mod_to_instance(
     } else {
         versions.first().ok_or("No matching version found")?
     };
-    tracing::info!("📦 Selected version: {}", version.version_number);
-    tracing::info!("📦 Version details: {:#?}", version);
+    tracing::info!(
+        "📦 Selected: {} {} ({}, loaders: [{}], game: [{}], {} files, {} deps)",
+        version.name,
+        version.version_number,
+        version.version_type,
+        version.loaders.join(", "),
+        version.game_versions.join(", "),
+        version.files.len(),
+        version.dependencies.len(),
+    );
+    tracing::debug!("📦 Version details: {:#?}", version);
 
     // TODO: Use loader info from API response instead of filename matching
     let primary_file = version
@@ -263,6 +281,14 @@ pub async fn download_mod_to_instance(
     download_with_progress(&primary_file.url, &dest, &primary_file.hashes.sha1).await?;
 
     let mut manifest = ModManifest::load(instance_name)?;
+
+    if !version.dependencies.is_empty() {
+        tracing::info!(
+            "📦 Resolving {} dependencies for {}...",
+            version.dependencies.len(),
+            hit.title
+        );
+    }
 
     // Resolve dependency names concurrently
     let dep_futures: Vec<_> = version
