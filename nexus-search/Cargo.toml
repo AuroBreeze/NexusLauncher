@@ -1,0 +1,17 @@
+[package]
+name = "nexus-search"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+nexus-core = { path = "../nexus-core" }
+nexus-cli = { path = "../nexus-cli" }
+nexus-config = { path = "../nexus-config" }
+nexus-java = { path = "../nexus-java" }
+nexus-mods = { path = "../nexus-mods" }
+nexus-version = { path = "../nexus-version" }
+
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
