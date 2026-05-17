@@ -107,6 +107,10 @@ pub fn start_game(launch_context: LaunchContext) -> Result<(), AnyError> {
 
     tracing::info!("Execute command: {:?}", args_preview);
 
+    // TODO: Capture child stderr/stdout to detect and report crashes.
+    // Currently we only log the exit status — piping stderr would let us
+    // surface error messages (e.g. ModResolutionException, OutOfMemory)
+    // directly to the user instead of requiring log file inspection.
     let mut child = cmd.spawn()?;
     tracing::info!("🚀 The game has successfully started! PID: {}", child.id());
 

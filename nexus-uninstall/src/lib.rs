@@ -54,6 +54,9 @@ pub async fn handle_uninstall_mod(args: &UninstallModArgs) -> Result<(), AnyErro
             args.instance
         );
     } else {
+        // TODO: Remove corresponding entries from nexus_mods.toml manifest
+        // when uninstalling mods — currently the manifest retains stale entries
+        // for files that have been deleted from disk.
         tracing::info!(
             "Removed {} mod(s) from instance '{}'.",
             removed,

@@ -4,12 +4,10 @@
 OUTPUT_FILE="todo_list.md"
 KEYWORDS="TODO|FIXME|PERF|OPTIMIZE|HACK"
 
-# 1. Check if there are any changes to TODO keywords in staged files
-# If this is not a pre-commit run (no staged changes), we might want to run anyway
-if [ -n "$(git rev-parse --is-inside-work-tree 2>/dev/null)" ]; then
-  # git diff -G scans the content for the pattern
-  if git diff --cached --quiet -G"$KEYWORDS" && [ -f "$OUTPUT_FILE" ]; then
-    # No keyword changes in staged files, skip for performance
+# 1. When running as a pre-commit hook, skip if no TODO keywords changed in staged files.
+#    Manual runs always proceed regardless of staged changes.
+if [ "${PRE_COMMIT:-}" = "1" ]; then
+  if git diff --cached --quiet -G"$KEYWORDS" 2>/dev/null && [ -f "$OUTPUT_FILE" ]; then
     exit 0
   fi
 fi

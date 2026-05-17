@@ -184,7 +184,6 @@ pub async fn get_version_files(id: &str) -> Result<Vec<VersionFile>, AnyError> {
     Ok(version.files)
 }
 
-// TODO: Resolve and download mod dependencies (e.g., sodium needs fabric-api)
 // TODO: Track mod download statistics (count, version, timestamp)
 // TODO: Adding downloads for specific versions, etc.
 /// Search for a mod and download the latest matching version.
@@ -290,6 +289,12 @@ pub async fn download_mod_to_instance(
         );
     }
 
+    // TODO: Download required dependency jars into the mods directory,
+    // not just resolve their names. For each dependency with
+    // dependency_type == "required", call get_version_files + download
+    // recursively (with the same loader/game_version filter). Embedded
+    // deps should also be downloaded. Skip optional/incompatible.
+    //
     // Resolve dependency names concurrently
     let dep_futures: Vec<_> = version
         .dependencies
