@@ -1192,6 +1192,7 @@ dependencies = [
  "nexus-list",
  "nexus-loader",
  "nexus-mods",
+ "nexus-uninstall",
  "nexus-version",
  "serde",
  "serde_json",
@@ -1217,6 +1218,16 @@ dependencies = [
  "sha-1",
  "tokio",
  "toml",
+ "tracing",
+]
+
+[[package]]
+name = "nexus-uninstall"
+version = "0.1.0"
+dependencies = [
+ "nexus-cli",
+ "nexus-core",
+ "tokio",
  "tracing",
 ]
 

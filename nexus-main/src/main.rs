@@ -26,6 +26,7 @@ use nexus_mods::models::SearchParams;
 
 use nexus_core::*;
 use nexus_list::{handle_list_info, handle_list_instances, handle_list_users};
+use nexus_uninstall::{handle_uninstall_instance, handle_uninstall_mod};
 
 use nexus_version::download::download_and_verify;
 use nexus_version::models::VersionDetail;
@@ -71,6 +72,11 @@ async fn main() -> Result<(), AnyError> {
             ListCommands::Instances => handle_list_instances().await?,
             ListCommands::Users => handle_list_users().await?,
             ListCommands::Info(info_args) => handle_list_info(&info_args).await?,
+        },
+
+        Some(Commands::Uninstall(args)) => match args.command {
+            UninstallCommands::Instance(inst_args) => handle_uninstall_instance(&inst_args).await?,
+            UninstallCommands::Mod(mod_args) => handle_uninstall_mod(&mod_args).await?,
         },
 
         Some(Commands::Set(args)) => handle_set(&args).await?,
