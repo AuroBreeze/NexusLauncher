@@ -49,15 +49,31 @@ pub enum SearchCommands {
     Mod(SearchModArgs),
     /// Search for installed Java runtimes
     Java(SearchJavaArgs),
+    /// Search for available Minecraft versions
+    Core(SearchCoreArgs),
     /// List cached user profiles from a game instance's usercache.json
     User(SearchUserArgs),
-    // TODO: Add search subcommands for Loader, Version, etc.
 }
 
 #[derive(Args, Debug)]
 pub struct SearchUserArgs {
     /// The name of the game instance (e.g. "1.20")
     pub instance: String,
+}
+
+#[derive(Args, Debug)]
+pub struct SearchCoreArgs {
+    /// Filter by version string (e.g. "1.21" matches "1.21.4", "1.21.5", etc.)
+    #[arg(short, long)]
+    pub version: Option<String>,
+
+    /// Show only stable releases (exclude snapshots)
+    #[arg(short, long, action = clap::ArgAction::SetTrue)]
+    pub stable: bool,
+
+    /// Maximum number of results (default 20)
+    #[arg(short, long, default_value = "20")]
+    pub limit: usize,
 }
 
 // ==========================================
@@ -199,9 +215,6 @@ pub struct CoreArgs {
     /// Custom directory name for the game instance (defaults to the game version)
     #[arg(short, long)]
     pub name: Option<String>,
-
-    #[arg(short, long)]
-    pub list: Option<String>,
 }
 
 #[derive(Args, Debug)]

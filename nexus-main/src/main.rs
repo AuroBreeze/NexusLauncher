@@ -65,6 +65,7 @@ async fn main() -> Result<(), AnyError> {
         Some(Commands::Search(args)) => match args.command {
             SearchCommands::Mod(search_args) => handle_search_mod(&search_args).await?,
             SearchCommands::Java(search_args) => handle_search_java(&search_args).await?,
+            SearchCommands::Core(search_args) => handle_search_core(&search_args).await?,
             SearchCommands::User(search_args) => handle_search_user(&search_args).await?,
         },
 
@@ -85,6 +86,37 @@ async fn main() -> Result<(), AnyError> {
         None => {
             println!("Please specify a command. Use --help");
         }
+    }
+
+    Ok(())
+}
+
+async fn handle_search_core(args: &SearchCoreArgs) -> Result<(), AnyError> {
+    let manifest = obtain_manifest().await?;
+    let mut results: Vec<_> = manifest
+        .versions
+        .iter()
+        .filter(|v| {
+            if args.stable && v.version_type != "release" {
+                return false;
+            }
+            if let Some(filter) = &args.version {
+                return v.id.starts_with(filter);
+            }
+            true
+        })
+        .take(args.limit)
+        .collect();
+
+    results.sort_by(|a, b| b.id.cmp(&a.id));
+
+    tracing::info!(
+        "Found {} version(s){}:",
+        results.len(),
+        if args.stable { " (stable only)" } else { "" }
+    );
+    for v in &results {
+        tracing::info!("  {} ({})", v.id, v.version_type);
     }
 
     Ok(())
