@@ -31,6 +31,8 @@ pub enum Commands {
     Set(SetArgs),
     /// Search for mods, loaders, and more
     Search(SearchArgs),
+    /// List instances, users, and instance info
+    List(ListArgs),
 }
 
 #[derive(Args)]
@@ -54,6 +56,40 @@ pub enum SearchCommands {
 pub struct SearchUserArgs {
     /// The name of the game instance (e.g. "1.20")
     pub instance: String,
+}
+
+// ==========================================
+// List Subcommands group
+// ==========================================
+
+#[derive(Args)]
+pub struct ListArgs {
+    #[command(subcommand)]
+    pub command: ListCommands,
+}
+
+#[derive(Subcommand)]
+pub enum ListCommands {
+    /// List all available game instances
+    Instances,
+    /// Show current user account information
+    Users,
+    /// Show details about a specific game instance
+    Info(ListInfoArgs),
+}
+
+#[derive(Args, Debug)]
+pub struct ListInfoArgs {
+    /// The name of the game instance
+    pub instance: String,
+
+    /// Show detailed loader information
+    #[arg(short, long, action = clap::ArgAction::SetTrue)]
+    pub loader: bool,
+
+    /// List installed mods with details
+    #[arg(short, long, action = clap::ArgAction::SetTrue)]
+    pub mods: bool,
 }
 
 #[derive(Args, Debug)]
