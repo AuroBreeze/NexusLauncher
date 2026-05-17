@@ -300,8 +300,14 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
         .and_then(|data| serde_json::from_str::<FabricProfile>(&data).ok()); // Try parse JSON
     // dbg!(&fabric_profile);
 
-    let data = std::fs::read_to_string(game_version_json_path).unwrap();
-    let detail: VersionDetail = serde_json::from_str(&data).unwrap();
+    let data = std::fs::read_to_string(&game_version_json_path).map_err(|_| {
+        format!(
+            "Instance '{}' not found. Run `nexus install core --game-version <version>` to install it.",
+            args.instance_name
+        )
+    })?;
+    let detail: VersionDetail =
+        serde_json::from_str(&data).map_err(|e| format!("Failed to parse version.json: {}", e))?;
     let version_id = detail.id;
     let required_java_version = detail.java_version.major_version as u32;
 
