@@ -33,6 +33,8 @@ pub enum Commands {
     Search(SearchArgs),
     /// List instances, users, and instance info
     List(ListArgs),
+    /// Uninstall instances or mods
+    Uninstall(UninstallArgs),
 }
 
 #[derive(Args)]
@@ -90,6 +92,40 @@ pub struct ListInfoArgs {
     /// List installed mods with details
     #[arg(short, long, action = clap::ArgAction::SetTrue)]
     pub mods: bool,
+}
+
+// ==========================================
+// Uninstall Subcommands group
+// ==========================================
+
+#[derive(Args)]
+pub struct UninstallArgs {
+    #[command(subcommand)]
+    pub command: UninstallCommands,
+}
+
+#[derive(Subcommand)]
+pub enum UninstallCommands {
+    /// Delete a game instance and all its files
+    Instance(UninstallInstanceArgs),
+    /// Remove a mod from an instance
+    Mod(UninstallModArgs),
+}
+
+#[derive(Args, Debug)]
+pub struct UninstallInstanceArgs {
+    /// The name of the game instance to delete
+    pub instance: String,
+}
+
+#[derive(Args, Debug)]
+pub struct UninstallModArgs {
+    /// Name or keyword to match mod files
+    pub query: String,
+
+    /// Target game instance name
+    #[arg(short, long)]
+    pub instance: String,
 }
 
 #[derive(Args, Debug)]
