@@ -36,7 +36,6 @@ pub async fn handle_search_core(args: &SearchCoreArgs) -> Result<(), AnyError> {
         })
         .collect();
 
-    results.sort_by(|a, b| b.id.cmp(&a.id));
     results.truncate(args.limit);
 
     tracing::info!(
