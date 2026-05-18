@@ -42,6 +42,7 @@ pub fn save_refresh_token(uuid: &str, token: &str) -> Result<(), AnyError> {
     }
 
     fs::write(vault_dir.join(uuid), ciphertext)?;
+    tracing::info!("Refresh token saved (uuid: {})", uuid);
     Ok(())
 }
 
@@ -57,6 +58,7 @@ pub fn get_refresh_token(uuid: &str) -> Result<String, AnyError> {
         .decrypt(nonce, ciphertext.as_slice())
         .map_err(|e| format!("Decryption error: {}. Hardware changed?", e))?;
 
+    tracing::debug!("Refresh token loaded (uuid: {})", uuid);
     Ok(String::from_utf8(plaintext)?)
 }
 

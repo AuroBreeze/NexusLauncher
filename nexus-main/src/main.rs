@@ -38,11 +38,6 @@ async fn main() -> Result<(), AnyError> {
     let cli = Cli::parse();
 
     init_workspace()?;
-    // TODO: Add tracing spans/events throughout the codebase for
-    // observability — key I/O paths (auth storage, loader resolution,
-    // version downloads, config reads/writes) currently lack telemetry,
-    // making post-mortem debugging difficult when things fail silently.
-    //
     // Initialize the logger
     tracing_subscriber::fmt()
         .with_env_filter(

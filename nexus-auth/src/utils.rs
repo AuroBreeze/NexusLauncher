@@ -30,6 +30,7 @@ pub async fn poll_for_ms_token(
     device_code: &str,
     interval: u64,
 ) -> Result<MicrosoftToken, AnyError> {
+    tracing::info!("Waiting for user to complete device login...");
     let client = Client::new();
     loop {
         let res = client
@@ -44,6 +45,7 @@ pub async fn poll_for_ms_token(
 
         let body: serde_json::Value = res.json().await?;
         if let Some(token) = body.get("access_token") {
+            tracing::info!("Device login completed, received Microsoft token");
             return Ok(MicrosoftToken {
                 access_token: token.as_str().unwrap().to_string(),
                 refresh_token: body
@@ -204,10 +206,12 @@ pub async fn refresh_ms_token(refresh_token: &str) -> Result<MicrosoftToken, Any
 /// Login with saved refresh token
 /// must be called with a valid refresh token
 pub async fn silent_login(uuid: &str) -> Result<String, AnyError> {
+    tracing::info!("Attempting silent login...");
     // Get the locally encrypted refresh token
     let saved_rt = get_refresh_token(uuid)?;
 
     // Refresh the Microsoft token
+    tracing::debug!("Refreshing Microsoft token...");
     let ms_token = refresh_ms_token(&saved_rt).await?;
 
     if let Some(new_rt) = &ms_token.refresh_token {
@@ -216,13 +220,17 @@ pub async fn silent_login(uuid: &str) -> Result<String, AnyError> {
     }
 
     // Get the Xbox token
+    tracing::debug!("Authenticating with Xbox Live...");
     let (xbox_token, uhs) = get_xbox_token(&ms_token.access_token).await?;
 
     // Convert the Xbox token to an XSTS token
+    tracing::debug!("Requesting XSTS token...");
     let xsts_token = get_xsts_token(&xbox_token).await?;
 
     // Finally, use the XSTS token to get the Minecraft token
+    tracing::debug!("Authenticating with Minecraft services...");
     let mc_token = get_minecraft_token(&xsts_token, &uhs).await?;
+    tracing::info!("Silent login successful");
 
     Ok(mc_token)
 }

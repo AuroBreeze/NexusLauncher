@@ -45,6 +45,7 @@ pub async fn search_project(params: &SearchParams) -> Result<SearchResult, AnyEr
         url.push_str(&format!("&facets={}", url_encode_json(&json)));
     }
 
+    tracing::debug!("🔍 GET {}", url);
     let client = Client::new();
     let resp = client
         .get(&url)
@@ -52,7 +53,14 @@ pub async fn search_project(params: &SearchParams) -> Result<SearchResult, AnyEr
         .send()
         .await?
         .error_for_status()?;
+    tracing::debug!("🔍 search_project → {}", resp.status());
     let result = resp.json::<SearchResult>().await?;
+    tracing::debug!(
+        "🔍 total_hits={}, offset={}, limit={}",
+        result.total_hits,
+        result.offset,
+        result.limit
+    );
     tracing::info!("📦 Found {} mods matching your query", result.hits.len());
     for hit in &result.hits {
         tracing::info!(
@@ -73,6 +81,7 @@ pub async fn search_project(params: &SearchParams) -> Result<SearchResult, AnyEr
 pub async fn get_project(id_or_slug: &str) -> Result<Project, AnyError> {
     let url = format!("https://api.modrinth.com/v2/project/{}", id_or_slug);
 
+    tracing::debug!("🔍 GET {}", url);
     let client = Client::new();
     let resp = client
         .get(&url)
@@ -80,6 +89,7 @@ pub async fn get_project(id_or_slug: &str) -> Result<Project, AnyError> {
         .send()
         .await?
         .error_for_status()?;
+    tracing::debug!("🔍 get_project → {}", resp.status());
     let result = resp.json::<Project>().await?;
     tracing::info!("📦 Project: {} ({})", result.title, result.id);
     Ok(result)
@@ -112,6 +122,7 @@ pub async fn list_project_versions(params: &ListVersionsParams) -> Result<Vec<Ve
         url.push_str(&query_params.join("&"));
     }
 
+    tracing::debug!("🔍 GET {}", url);
     let client = Client::new();
     let resp = client
         .get(&url)
@@ -119,6 +130,7 @@ pub async fn list_project_versions(params: &ListVersionsParams) -> Result<Vec<Ve
         .send()
         .await?
         .error_for_status()?;
+    tracing::debug!("🔍 list_versions → {}", resp.status());
     let result = resp.json::<Vec<Version>>().await?;
     tracing::info!(
         "📦 Found {} versions for project {}",
@@ -137,6 +149,7 @@ pub async fn get_project_dependencies(id_or_slug: &str) -> Result<ProjectDepende
         id_or_slug
     );
 
+    tracing::debug!("🔍 GET {}", url);
     let client = Client::new();
     let resp = client
         .get(&url)
@@ -144,6 +157,7 @@ pub async fn get_project_dependencies(id_or_slug: &str) -> Result<ProjectDepende
         .send()
         .await?
         .error_for_status()?;
+    tracing::debug!("🔍 get_deps → {}", resp.status());
     let result = resp.json::<ProjectDependencies>().await?;
     tracing::info!(
         "📦 Found {} dependent projects and {} dependent versions",
@@ -159,6 +173,7 @@ pub async fn get_project_dependencies(id_or_slug: &str) -> Result<ProjectDepende
 pub async fn get_version(id: &str) -> Result<Version, AnyError> {
     let url = format!("https://api.modrinth.com/v2/version/{}", id);
 
+    tracing::debug!("🔍 GET {}", url);
     let client = Client::new();
     let resp = client
         .get(&url)
@@ -166,6 +181,7 @@ pub async fn get_version(id: &str) -> Result<Version, AnyError> {
         .send()
         .await?
         .error_for_status()?;
+    tracing::debug!("🔍 get_version → {}", resp.status());
     let result = resp.json::<Version>().await?;
     tracing::info!("📦 Version: {} — {}", result.name, result.version_number);
     Ok(result)
@@ -197,6 +213,14 @@ pub async fn download_mod_to_instance(
     version_type: Option<&str>,
     instance_name: &str,
 ) -> Result<std::path::PathBuf, AnyError> {
+    tracing::debug!(
+        "download_mod_to_instance: query={}, game_version={:?}, loader={:?}, version_type={:?}, instance={}",
+        query,
+        game_version,
+        loader,
+        version_type,
+        instance_name
+    );
     nexus_core::validate_instance_name(instance_name)?;
     let mut facets = vec![vec!["project_type:mod".to_string()]];
     if let Some(gv) = game_version {
@@ -271,6 +295,12 @@ pub async fn download_mod_to_instance(
         .or_else(|| version.files.iter().find(|f| f.primary))
         .or_else(|| version.files.first())
         .ok_or("No matching file found")?;
+    tracing::debug!(
+        "Selected file: {} (primary={}, size={})",
+        primary_file.filename,
+        primary_file.primary,
+        primary_file.size
+    );
 
     let dest_dir = nexus_core::get_clients_dir()
         .join(instance_name)
@@ -386,8 +416,15 @@ async fn download_with_progress(
         tokio::fs::create_dir_all(parent).await?;
     }
 
+    tracing::debug!("⬇ GET {}", url);
     let response = reqwest::get(url).await?.error_for_status()?;
     let total_size = response.content_length().unwrap_or(0);
+    tracing::debug!(
+        "⬇ {} → size={}, dest={}",
+        response.status(),
+        total_size,
+        path.display()
+    );
 
     let pb = ProgressBar::new(total_size);
     pb.set_style(

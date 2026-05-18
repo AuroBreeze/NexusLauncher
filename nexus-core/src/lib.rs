@@ -177,7 +177,7 @@ fn parse_major_version(version_str: &str) -> Option<u32> {
 
 /// Test the specified Java path and extract version information
 pub async fn check_java_executable(java_path: &Path) -> Option<JavaInfo> {
-    // Run java -version silently
+    tracing::debug!("Checking Java executable: {}", java_path.display());
     let output = Command::new(java_path)
         .arg("-version")
         .output()

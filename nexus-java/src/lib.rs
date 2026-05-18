@@ -11,7 +11,9 @@ pub async fn handle_java(args: &JavaArgs) -> Result<(), AnyError> {
     if args.download {
         let java_version = args.version;
         let custom_runtime_dir = get_minecraft_dir().join("runtimes");
-        download_java(java_version, custom_runtime_dir.as_path()).await?;
+        tracing::info!("Downloading Java {} to runtimes directory...", java_version);
+        let java_path = download_java(java_version, custom_runtime_dir.as_path()).await?;
+        tracing::info!("Java {} installed at {}", java_version, java_path.display());
     }
 
     if args.scan {

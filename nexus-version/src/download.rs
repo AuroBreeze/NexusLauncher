@@ -144,6 +144,7 @@ pub async fn download_and_verify(
         fs::create_dir_all(parent).await?;
     }
 
+    tracing::debug!("Downloading {}...", save_path.display());
     let response = reqwest::get(url).await?;
 
     let pb = ProgressBar::hidden(); // Silent mode: Does not display, but can still receive inc() updates without errors
@@ -192,12 +193,14 @@ pub async fn pool_download_and_link(
 
     // TODO: Add SHA1 verification — exists() check alone may accept corrupt partial downloads
     if !pool_path.exists() {
+        tracing::debug!("Downloading library: {}", lib_relative_path);
         fs::create_dir_all(pool_path.parent().unwrap()).await?;
         let resp = reqwest::get(url).await?.bytes().await?;
         fs::write(&pool_path, resp).await?;
     }
 
     if !target_path.exists() {
+        tracing::debug!("Linking library: {}", lib_relative_path);
         fs::create_dir_all(target_path.parent().unwrap()).await?;
         fs::hard_link(&pool_path, &target_path).await?;
     }
