@@ -162,7 +162,7 @@ pub async fn handle_search_user(args: &SearchUserArgs) -> Result<(), AnyError> {
         .join(&args.instance)
         .join("usercache.json");
 
-    let content = match std::fs::read_to_string(&path) {
+    let content = match tokio::fs::read_to_string(&path).await {
         Ok(c) => c,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
             tracing::warn!(

@@ -2,7 +2,6 @@ use super::download::{DownloadTask, download_and_verify, execute_downloads};
 use super::models::{AssetIndexManifest, VersionDetail, VersionManifest};
 use nexus_core::AnyError;
 use reqwest::Client;
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
@@ -125,7 +124,7 @@ pub async fn verify_game_integrity(game_path: &Path) -> Result<(), AnyError> {
     if !game_version_json_path.exists() {
         return Err("Game version JSON not found".into());
     }
-    let data = fs::read_to_string(game_version_json_path)?;
+    let data = tokio::fs::read_to_string(game_version_json_path).await?;
     let detail: VersionDetail = serde_json::from_str(&data)?;
 
     let target_version = &detail.id;

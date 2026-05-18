@@ -77,7 +77,7 @@ pub async fn get_latest_loader(game_name: &str) -> Result<String, AnyError> {
     tracing::info!("Fetching latest Fabric Loader for {}", game_name);
 
     let json_file_path = find_game_json(game_name)?;
-    let data = std::fs::read_to_string(&json_file_path)?;
+    let data = tokio::fs::read_to_string(&json_file_path).await?;
     let v: Value = serde_json::from_str(&data)?;
     let id = v["id"].as_str().ok_or("Cannot find game id")?;
     tracing::info!("Game version: {}", id);

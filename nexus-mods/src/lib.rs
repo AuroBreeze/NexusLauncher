@@ -36,7 +36,7 @@ pub async fn handle_mods(args: &ModArgs) -> Result<(), AnyError> {
                         .join(instance)
                         .join("version.json");
                     tracing::debug!("Reading game version from {}", version_json.display());
-                    let content = std::fs::read_to_string(&version_json)?;
+                    let content = tokio::fs::read_to_string(&version_json).await?;
                     let detail: serde_json::Value = serde_json::from_str(&content)?;
                     let resolved = detail["id"].as_str().map(|s| s.to_string());
                     tracing::debug!("Resolved game version: {:?}", resolved);
