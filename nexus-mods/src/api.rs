@@ -5,6 +5,12 @@ use crate::models::{
 use futures_util::StreamExt;
 use nexus_core::AnyError;
 use reqwest::Client;
+use std::sync::OnceLock;
+
+static CLIENT: OnceLock<Client> = OnceLock::new();
+fn client() -> &'static Client {
+    CLIENT.get_or_init(Client::new)
+}
 
 // URL-encode a JSON string for use as a query parameter value
 fn url_encode_json(json: &str) -> String {
@@ -46,7 +52,7 @@ pub async fn search_project(params: &SearchParams) -> Result<SearchResult, AnyEr
     }
 
     tracing::debug!("🔍 GET {}", url);
-    let client = Client::new();
+    let client = client();
     let resp = client
         .get(&url)
         .header("User-Agent", "AuroBreeze/NexusLauncher/0.1.0")
@@ -82,7 +88,7 @@ pub async fn get_project(id_or_slug: &str) -> Result<Project, AnyError> {
     let url = format!("https://api.modrinth.com/v2/project/{}", id_or_slug);
 
     tracing::debug!("🔍 GET {}", url);
-    let client = Client::new();
+    let client = client();
     let resp = client
         .get(&url)
         .header("User-Agent", "AuroBreeze/NexusLauncher/0.1.0")
@@ -123,7 +129,7 @@ pub async fn list_project_versions(params: &ListVersionsParams) -> Result<Vec<Ve
     }
 
     tracing::debug!("🔍 GET {}", url);
-    let client = Client::new();
+    let client = client();
     let resp = client
         .get(&url)
         .header("User-Agent", "AuroBreeze/NexusLauncher/0.1.0")
@@ -150,7 +156,7 @@ pub async fn get_project_dependencies(id_or_slug: &str) -> Result<ProjectDepende
     );
 
     tracing::debug!("🔍 GET {}", url);
-    let client = Client::new();
+    let client = client();
     let resp = client
         .get(&url)
         .header("User-Agent", "AuroBreeze/NexusLauncher/0.1.0")
@@ -174,7 +180,7 @@ pub async fn get_version(id: &str) -> Result<Version, AnyError> {
     let url = format!("https://api.modrinth.com/v2/version/{}", id);
 
     tracing::debug!("🔍 GET {}", url);
-    let client = Client::new();
+    let client = client();
     let resp = client
         .get(&url)
         .header("User-Agent", "AuroBreeze/NexusLauncher/0.1.0")
@@ -423,7 +429,7 @@ async fn download_with_progress(
     }
 
     tracing::debug!("⬇ GET {}", url);
-    let response = reqwest::get(url).await?.error_for_status()?;
+    let response = client().get(url).send().await?.error_for_status()?;
     let total_size = response.content_length().unwrap_or(0);
     tracing::debug!(
         "⬇ {} → size={}, dest={}",

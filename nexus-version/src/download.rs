@@ -1,13 +1,19 @@
 use crate::AnyError;
 use futures_util::StreamExt;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use reqwest::Client;
 use sha1::{Digest, Sha1};
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
+
+static CLIENT: OnceLock<Client> = OnceLock::new();
+fn client() -> &'static Client {
+    CLIENT.get_or_init(Client::new)
+}
 
 pub struct DownloadTask {
     pub name: String,
@@ -155,7 +161,7 @@ pub async fn download_and_verify(
     }
 
     tracing::debug!("Downloading {}...", save_path.display());
-    let response = reqwest::get(url).await?;
+    let response = client().get(url).send().await?;
 
     let pb = ProgressBar::hidden(); // Silent mode: Does not display, but can still receive inc() updates without errors
 
@@ -205,7 +211,7 @@ pub async fn pool_download_and_link(
     if !pool_path.exists() {
         tracing::debug!("Downloading library: {}", lib_relative_path);
         fs::create_dir_all(pool_path.parent().unwrap()).await?;
-        let resp = reqwest::get(url).await?.bytes().await?;
+        let resp = client().get(url).send().await?.bytes().await?;
         fs::write(&pool_path, resp).await?;
     }
 

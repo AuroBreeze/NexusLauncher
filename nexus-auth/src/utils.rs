@@ -2,10 +2,16 @@ use super::models::{CLIENT_ID, DeviceCodeResponse, MicrosoftToken};
 use crate::storage::{get_refresh_token, save_refresh_token};
 use nexus_core::AnyError;
 use reqwest::Client;
+use std::sync::OnceLock;
+
+static CLIENT: OnceLock<Client> = OnceLock::new();
+fn client() -> &'static Client {
+    CLIENT.get_or_init(Client::new)
+}
 
 pub async fn get_device_code() -> Result<DeviceCodeResponse, AnyError> {
     tracing::debug!("Requesting Microsoft device code...");
-    let client = Client::new();
+    let client = client();
     let res = client
         .post("https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode")
         .form(&[
@@ -32,7 +38,7 @@ pub async fn poll_for_ms_token(
     interval: u64,
 ) -> Result<MicrosoftToken, AnyError> {
     tracing::info!("Waiting for user to complete device login...");
-    let client = Client::new();
+    let client = client();
     loop {
         let res = client
             .post("https://login.microsoftonline.com/consumers/oauth2/v2.0/token")
@@ -60,7 +66,7 @@ pub async fn poll_for_ms_token(
 }
 
 pub async fn get_xbox_token(ms_token: &str) -> Result<(String, String), AnyError> {
-    let client = Client::new();
+    let client = client();
     let body = serde_json::json!({
         "Properties": {
             "AuthMethod": "RPS", "SiteName": "user.auth.xboxlive.com",
@@ -87,7 +93,7 @@ pub async fn get_xbox_token(ms_token: &str) -> Result<(String, String), AnyError
 
 ///  Exchange for XSTS Tokens
 pub async fn get_xsts_token(xbox_token: &str) -> Result<String, AnyError> {
-    let client = Client::new();
+    let client = client();
     let body = serde_json::json!({
         "Properties": { "SandboxId": "RETAIL", "UserTokens": [xbox_token] },
         "RelyingParty": "rp://api.minecraftservices.com/", "TokenType": "JWT"
@@ -110,7 +116,7 @@ pub async fn get_xsts_token(xbox_token: &str) -> Result<String, AnyError> {
 }
 
 pub async fn get_minecraft_token(xsts_token: &str, uhs: &str) -> Result<String, AnyError> {
-    let client = Client::new();
+    let client = client();
     let body = serde_json::json!({ "identityToken": format!("XBL3.0 x={};{}", uhs, xsts_token) });
 
     let res = client
@@ -136,7 +142,7 @@ pub async fn get_minecraft_token(xsts_token: &str, uhs: &str) -> Result<String, 
 
 pub async fn check_ownership(mc_token: &str) -> Result<bool, AnyError> {
     tracing::debug!("Checking Minecraft ownership...");
-    let client = Client::new();
+    let client = client();
     let res = client
         .get("https://api.minecraftservices.com/entitlements/mcstore")
         .bearer_auth(mc_token)
@@ -161,7 +167,7 @@ pub async fn check_ownership(mc_token: &str) -> Result<bool, AnyError> {
 pub async fn get_minecraft_profile(
     mc_token: &str,
 ) -> Result<super::models::MinecraftProfile, AnyError> {
-    let client = Client::new();
+    let client = client();
     let res = client
         .get("https://api.minecraftservices.com/minecraft/profile")
         .bearer_auth(mc_token)
@@ -184,7 +190,7 @@ pub async fn get_minecraft_profile(
 ///  Refresh the Microsoft Token
 pub async fn refresh_ms_token(refresh_token: &str) -> Result<MicrosoftToken, AnyError> {
     tracing::debug!("Refreshing Microsoft token via OAuth...");
-    let client = Client::new();
+    let client = client();
     let res = client
         .post("https://login.microsoftonline.com/consumers/oauth2/v2.0/token")
         .form(&[

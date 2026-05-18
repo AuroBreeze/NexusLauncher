@@ -1,15 +1,22 @@
 use super::download::{DownloadTask, download_and_verify, execute_downloads};
 use super::models::{AssetIndexManifest, VersionDetail, VersionManifest};
 use nexus_core::AnyError;
+use reqwest::Client;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
+
+static CLIENT: OnceLock<Client> = OnceLock::new();
+fn client() -> &'static Client {
+    CLIENT.get_or_init(Client::new)
+}
 
 /// obtain_manifest
 pub async fn obtain_manifest() -> Result<VersionManifest, AnyError> {
     let url = "https://launchermeta.mojang.com/mc/game/version_manifest.json";
     tracing::info!("Obtaining version manifest from {}", url);
 
-    let response = reqwest::get(url).await?;
+    let response = client().get(url).send().await?;
 
     let manifest = response.json::<VersionManifest>().await?;
 
@@ -22,7 +29,7 @@ pub async fn obtain_manifest() -> Result<VersionManifest, AnyError> {
 /// fetch_version_detail
 pub async fn fetch_version_detail(url: &str) -> Result<VersionDetail, AnyError> {
     tracing::trace!("Fetching version detail from {}", url);
-    let response = reqwest::get(url).await?;
+    let response = client().get(url).send().await?;
     let detail = response.json::<VersionDetail>().await?;
     tracing::trace!("Version detail: {:#?}", detail);
     Ok(detail)
