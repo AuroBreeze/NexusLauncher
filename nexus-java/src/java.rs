@@ -5,11 +5,25 @@ use nexus_config::config::Config;
 use nexus_config::models::LaunchConfig;
 use nexus_core::AnyError;
 use nexus_core::*;
+use reqwest::Client;
 use std::env;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
+use std::time::Duration;
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use walkdir::WalkDir;
+
+static CLIENT: OnceLock<Client> = OnceLock::new();
+fn client() -> &'static Client {
+    CLIENT.get_or_init(|| {
+        Client::builder()
+            .connect_timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(30))
+            .build()
+            .expect("failed to build shared reqwest client")
+    })
+}
 
 /// Deep scans the specified directory looking for bin/java executables.
 async fn scan_jvm_directory(dir: &Path) -> Vec<JavaInfo> {
@@ -151,7 +165,7 @@ pub async fn download_java(major_version: u32, runtimes_dir: &Path) -> Result<Pa
     }
 
     // 3. Initiate the download stream
-    let response = reqwest::get(&url).await?;
+    let response = client().get(&url).send().await?.error_for_status()?;
     let total_size = response.content_length().unwrap_or(0);
 
     let pb = ProgressBar::new(total_size);

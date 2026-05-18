@@ -2,9 +2,23 @@ use super::models::{FabricLoaderResponse, FabricLoaderVersion, FabricProfile, Qu
 use nexus_core::AnyError;
 use nexus_core::*;
 use nexus_version::download::pool_download_and_link;
+use reqwest::Client;
 use serde_json::Value;
 use std::path::PathBuf;
+use std::sync::OnceLock;
+use std::time::Duration;
 use tokio::fs;
+
+static CLIENT: OnceLock<Client> = OnceLock::new();
+fn client() -> &'static Client {
+    CLIENT.get_or_init(|| {
+        Client::builder()
+            .connect_timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(30))
+            .build()
+            .expect("failed to build shared reqwest client")
+    })
+}
 /// Find the version JSON file within the game directory
 pub fn find_game_json(game_name: &str) -> Result<PathBuf, AnyError> {
     // 1. Get the base directory and join with game_name
@@ -31,6 +45,7 @@ pub fn find_game_json(game_name: &str) -> Result<PathBuf, AnyError> {
         })
         .ok_or_else(|| format!("No JSON version file found in {}", target_dir.display()))?;
 
+    tracing::debug!("Found version.json at {}", json_file.display());
     Ok(json_file)
 }
 
@@ -60,6 +75,7 @@ pub fn find_fabric_json(dir_path: &PathBuf) -> Result<Option<PathBuf>, Box<dyn s
             }
         });
 
+    tracing::debug!("find_fabric_json → {:?}", target_file);
     Ok(target_file)
 }
 
@@ -68,13 +84,13 @@ pub async fn get_latest_loader(game_name: &str) -> Result<String, AnyError> {
     tracing::info!("Fetching latest Fabric Loader for {}", game_name);
 
     let json_file_path = find_game_json(game_name)?;
-    let data = std::fs::read_to_string(&json_file_path)?;
+    let data = tokio::fs::read_to_string(&json_file_path).await?;
     let v: Value = serde_json::from_str(&data)?;
     let id = v["id"].as_str().ok_or("Cannot find game id")?;
     tracing::info!("Game version: {}", id);
 
     let url = format!("https://meta.fabricmc.net/v2/versions/loader/{}", id);
-    let resp: Vec<FabricLoaderResponse> = reqwest::get(url).await?.json().await?;
+    let resp: Vec<FabricLoaderResponse> = client().get(url).send().await?.json().await?;
 
     // find the first stable version
     let latest = resp
@@ -106,7 +122,7 @@ pub async fn get_fabric_profile(
     let name = format!("fabric_profile_{}_{}.json", game_version, loader_version);
     let save_path = get_clients_dir().join(game_name).join(name);
     // 1. Get the raw response text instead of directly deserializing
-    let response_text = reqwest::get(url).await?.text().await?;
+    let response_text = client().get(url).send().await?.text().await?;
 
     // 2. Ensure the parent directory exists before writing
     if let Some(parent) = save_path.parent() {
@@ -155,7 +171,7 @@ pub async fn get_fabric_loader_versions(
 ) -> Result<Vec<FabricLoaderVersion>, AnyError> {
     if let Some(gv) = game_version {
         let url = format!("https://meta.fabricmc.net/v2/versions/loader/{}", gv);
-        let resp: Vec<FabricLoaderResponse> = reqwest::get(&url).await?.json().await?;
+        let resp: Vec<FabricLoaderResponse> = client().get(&url).send().await?.json().await?;
         Ok(resp
             .into_iter()
             .map(|r| FabricLoaderVersion {
@@ -165,7 +181,7 @@ pub async fn get_fabric_loader_versions(
             .collect())
     } else {
         let url = "https://meta.fabricmc.net/v2/versions/loader";
-        let resp = reqwest::get(url).await?.json().await?;
+        let resp = client().get(url).send().await?.json().await?;
         Ok(resp)
     }
 }
@@ -182,6 +198,6 @@ pub async fn get_quilt_loader_versions(
     } else {
         "https://meta.quiltmc.org/v3/versions/loader".to_string()
     };
-    let resp = reqwest::get(&url).await?.json().await?;
+    let resp = client().get(&url).send().await?.json().await?;
     Ok(resp)
 }

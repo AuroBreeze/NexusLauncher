@@ -1,6 +1,7 @@
 use clap::ValueEnum;
 use home::home_dir;
 use regex::Regex;
+use serde::Deserialize;
 use std::fmt::Display;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -139,6 +140,15 @@ pub fn maven_to_path(name: &str) -> String {
     )
 }
 
+/// Cached user profile entry from a game instance's usercache.json.
+#[derive(Debug, Deserialize)]
+pub struct UserCacheEntry {
+    pub name: String,
+    pub uuid: String,
+    #[serde(rename = "expiresOn")]
+    pub expires_on: String,
+}
+
 #[derive(Debug, Clone)]
 pub struct JavaInfo {
     pub path: PathBuf,
@@ -167,7 +177,7 @@ fn parse_major_version(version_str: &str) -> Option<u32> {
 
 /// Test the specified Java path and extract version information
 pub async fn check_java_executable(java_path: &Path) -> Option<JavaInfo> {
-    // Run java -version silently
+    tracing::debug!("Checking Java executable: {}", java_path.display());
     let output = Command::new(java_path)
         .arg("-version")
         .output()

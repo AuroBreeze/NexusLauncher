@@ -7,6 +7,15 @@ use nexus_cli::cli::ModArgs;
 use nexus_core::AnyError;
 
 pub async fn handle_mods(args: &ModArgs) -> Result<(), AnyError> {
+    tracing::debug!(
+        "handle_mods: query={:?}, download={}, limit={:?}, game_version={:?}, loader={:?}, instance_name={:?}",
+        args.query,
+        args.download,
+        args.limit,
+        args.game_version,
+        args.loader,
+        args.instance_name
+    );
     if let Some(query) = args.query.as_ref() {
         if args.download {
             let instance = args
@@ -26,9 +35,12 @@ pub async fn handle_mods(args: &ModArgs) -> Result<(), AnyError> {
                     let version_json = nexus_core::get_clients_dir()
                         .join(instance)
                         .join("version.json");
-                    let content = std::fs::read_to_string(&version_json)?;
+                    tracing::debug!("Reading game version from {}", version_json.display());
+                    let content = tokio::fs::read_to_string(&version_json).await?;
                     let detail: serde_json::Value = serde_json::from_str(&content)?;
-                    detail["id"].as_str().map(|s| s.to_string())
+                    let resolved = detail["id"].as_str().map(|s| s.to_string());
+                    tracing::debug!("Resolved game version: {:?}", resolved);
+                    resolved
                 }
             };
 

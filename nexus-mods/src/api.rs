@@ -5,6 +5,19 @@ use crate::models::{
 use futures_util::StreamExt;
 use nexus_core::AnyError;
 use reqwest::Client;
+use std::sync::OnceLock;
+use std::time::Duration;
+
+static CLIENT: OnceLock<Client> = OnceLock::new();
+fn client() -> &'static Client {
+    CLIENT.get_or_init(|| {
+        Client::builder()
+            .connect_timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(30))
+            .build()
+            .expect("failed to build shared reqwest client")
+    })
+}
 
 // URL-encode a JSON string for use as a query parameter value
 fn url_encode_json(json: &str) -> String {
@@ -45,16 +58,33 @@ pub async fn search_project(params: &SearchParams) -> Result<SearchResult, AnyEr
         url.push_str(&format!("&facets={}", url_encode_json(&json)));
     }
 
-    let client = Client::new();
+    tracing::debug!("🔍 GET {}", url);
+    let client = client();
     let resp = client
         .get(&url)
         .header("User-Agent", "AuroBreeze/NexusLauncher/0.1.0")
         .send()
         .await?
         .error_for_status()?;
+    tracing::debug!("🔍 search_project → {}", resp.status());
     let result = resp.json::<SearchResult>().await?;
+    tracing::debug!(
+        "🔍 total_hits={}, offset={}, limit={}",
+        result.total_hits,
+        result.offset,
+        result.limit
+    );
     tracing::info!("📦 Found {} mods matching your query", result.hits.len());
-    tracing::info!("📦 Mod list: {:#?}", result.hits);
+    for hit in &result.hits {
+        tracing::info!(
+            "  • {} ({}) — {} — by {}",
+            hit.title,
+            hit.project_id,
+            hit.description,
+            hit.author
+        );
+    }
+    tracing::debug!("📦 Mod list: {:#?}", result.hits);
     Ok(result)
 }
 
@@ -64,13 +94,15 @@ pub async fn search_project(params: &SearchParams) -> Result<SearchResult, AnyEr
 pub async fn get_project(id_or_slug: &str) -> Result<Project, AnyError> {
     let url = format!("https://api.modrinth.com/v2/project/{}", id_or_slug);
 
-    let client = Client::new();
+    tracing::debug!("🔍 GET {}", url);
+    let client = client();
     let resp = client
         .get(&url)
         .header("User-Agent", "AuroBreeze/NexusLauncher/0.1.0")
         .send()
         .await?
         .error_for_status()?;
+    tracing::debug!("🔍 get_project → {}", resp.status());
     let result = resp.json::<Project>().await?;
     tracing::info!("📦 Project: {} ({})", result.title, result.id);
     Ok(result)
@@ -103,13 +135,15 @@ pub async fn list_project_versions(params: &ListVersionsParams) -> Result<Vec<Ve
         url.push_str(&query_params.join("&"));
     }
 
-    let client = Client::new();
+    tracing::debug!("🔍 GET {}", url);
+    let client = client();
     let resp = client
         .get(&url)
         .header("User-Agent", "AuroBreeze/NexusLauncher/0.1.0")
         .send()
         .await?
         .error_for_status()?;
+    tracing::debug!("🔍 list_versions → {}", resp.status());
     let result = resp.json::<Vec<Version>>().await?;
     tracing::info!(
         "📦 Found {} versions for project {}",
@@ -128,13 +162,15 @@ pub async fn get_project_dependencies(id_or_slug: &str) -> Result<ProjectDepende
         id_or_slug
     );
 
-    let client = Client::new();
+    tracing::debug!("🔍 GET {}", url);
+    let client = client();
     let resp = client
         .get(&url)
         .header("User-Agent", "AuroBreeze/NexusLauncher/0.1.0")
         .send()
         .await?
         .error_for_status()?;
+    tracing::debug!("🔍 get_deps → {}", resp.status());
     let result = resp.json::<ProjectDependencies>().await?;
     tracing::info!(
         "📦 Found {} dependent projects and {} dependent versions",
@@ -150,13 +186,15 @@ pub async fn get_project_dependencies(id_or_slug: &str) -> Result<ProjectDepende
 pub async fn get_version(id: &str) -> Result<Version, AnyError> {
     let url = format!("https://api.modrinth.com/v2/version/{}", id);
 
-    let client = Client::new();
+    tracing::debug!("🔍 GET {}", url);
+    let client = client();
     let resp = client
         .get(&url)
         .header("User-Agent", "AuroBreeze/NexusLauncher/0.1.0")
         .send()
         .await?
         .error_for_status()?;
+    tracing::debug!("🔍 get_version → {}", resp.status());
     let result = resp.json::<Version>().await?;
     tracing::info!("📦 Version: {} — {}", result.name, result.version_number);
     Ok(result)
@@ -175,7 +213,6 @@ pub async fn get_version_files(id: &str) -> Result<Vec<VersionFile>, AnyError> {
     Ok(version.files)
 }
 
-// TODO: Resolve and download mod dependencies (e.g., sodium needs fabric-api)
 // TODO: Track mod download statistics (count, version, timestamp)
 // TODO: Adding downloads for specific versions, etc.
 /// Search for a mod and download the latest matching version.
@@ -189,6 +226,14 @@ pub async fn download_mod_to_instance(
     version_type: Option<&str>,
     instance_name: &str,
 ) -> Result<std::path::PathBuf, AnyError> {
+    tracing::debug!(
+        "download_mod_to_instance: query={}, game_version={:?}, loader={:?}, version_type={:?}, instance={}",
+        query,
+        game_version,
+        loader,
+        version_type,
+        instance_name
+    );
     nexus_core::validate_instance_name(instance_name)?;
     let mut facets = vec![vec!["project_type:mod".to_string()]];
     if let Some(gv) = game_version {
@@ -231,8 +276,17 @@ pub async fn download_mod_to_instance(
     } else {
         versions.first().ok_or("No matching version found")?
     };
-    tracing::info!("📦 Selected version: {}", version.version_number);
-    tracing::info!("📦 Version details: {:#?}", version);
+    tracing::info!(
+        "📦 Selected: {} {} ({}, loaders: [{}], game: [{}], {} files, {} deps)",
+        version.name,
+        version.version_number,
+        version.version_type,
+        version.loaders.join(", "),
+        version.game_versions.join(", "),
+        version.files.len(),
+        version.dependencies.len(),
+    );
+    tracing::debug!("📦 Version details: {:#?}", version);
 
     // TODO: Use loader info from API response instead of filename matching
     let primary_file = version
@@ -254,6 +308,12 @@ pub async fn download_mod_to_instance(
         .or_else(|| version.files.iter().find(|f| f.primary))
         .or_else(|| version.files.first())
         .ok_or("No matching file found")?;
+    tracing::debug!(
+        "Selected file: {} (primary={}, size={})",
+        primary_file.filename,
+        primary_file.primary,
+        primary_file.size
+    );
 
     let dest_dir = nexus_core::get_clients_dir()
         .join(instance_name)
@@ -264,6 +324,26 @@ pub async fn download_mod_to_instance(
 
     let mut manifest = ModManifest::load(instance_name)?;
 
+    if !version.dependencies.is_empty() {
+        tracing::info!(
+            "📦 Resolving {} dependencies for {}...",
+            version.dependencies.len(),
+            hit.title
+        );
+    }
+
+    // TODO: Download required dependency jars into the mods directory,
+    // not just resolve their names. For each dependency with
+    // dependency_type == "required", call get_version_files + download
+    // recursively (with the same loader/game_version filter). Embedded
+    // deps should also be downloaded. Skip optional/incompatible.
+    //
+    // TODO: Call get_version(vid) to fetch the full dependency version info
+    // (version_number, game_versions, loaders, etc.) and verify it supports
+    // the current game version and loader before installing. Currently only
+    // the opaque version_id is stored — no compatibility check and no
+    // human-readable version number in DepEntry.
+    //
     // Resolve dependency names concurrently
     let dep_futures: Vec<_> = version
         .dependencies
@@ -355,8 +435,15 @@ async fn download_with_progress(
         tokio::fs::create_dir_all(parent).await?;
     }
 
-    let response = reqwest::get(url).await?.error_for_status()?;
+    tracing::debug!("⬇ GET {}", url);
+    let response = client().get(url).send().await?.error_for_status()?;
     let total_size = response.content_length().unwrap_or(0);
+    tracing::debug!(
+        "⬇ {} → size={}, dest={}",
+        response.status(),
+        total_size,
+        path.display()
+    );
 
     let pb = ProgressBar::new(total_size);
     pb.set_style(

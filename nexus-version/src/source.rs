@@ -1,15 +1,28 @@
 use super::download::{DownloadTask, download_and_verify, execute_downloads};
 use super::models::{AssetIndexManifest, VersionDetail, VersionManifest};
 use nexus_core::AnyError;
-use std::fs;
+use reqwest::Client;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
+use std::time::Duration;
+
+static CLIENT: OnceLock<Client> = OnceLock::new();
+fn client() -> &'static Client {
+    CLIENT.get_or_init(|| {
+        Client::builder()
+            .connect_timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(30))
+            .build()
+            .expect("failed to build shared reqwest client")
+    })
+}
 
 /// obtain_manifest
 pub async fn obtain_manifest() -> Result<VersionManifest, AnyError> {
     let url = "https://launchermeta.mojang.com/mc/game/version_manifest.json";
     tracing::info!("Obtaining version manifest from {}", url);
 
-    let response = reqwest::get(url).await?;
+    let response = client().get(url).send().await?;
 
     let manifest = response.json::<VersionManifest>().await?;
 
@@ -22,7 +35,7 @@ pub async fn obtain_manifest() -> Result<VersionManifest, AnyError> {
 /// fetch_version_detail
 pub async fn fetch_version_detail(url: &str) -> Result<VersionDetail, AnyError> {
     tracing::trace!("Fetching version detail from {}", url);
-    let response = reqwest::get(url).await?;
+    let response = client().get(url).send().await?;
     let detail = response.json::<VersionDetail>().await?;
     tracing::trace!("Version detail: {:#?}", detail);
     Ok(detail)
@@ -118,7 +131,7 @@ pub async fn verify_game_integrity(game_path: &Path) -> Result<(), AnyError> {
     if !game_version_json_path.exists() {
         return Err("Game version JSON not found".into());
     }
-    let data = fs::read_to_string(game_version_json_path)?;
+    let data = tokio::fs::read_to_string(game_version_json_path).await?;
     let detail: VersionDetail = serde_json::from_str(&data)?;
 
     let target_version = &detail.id;

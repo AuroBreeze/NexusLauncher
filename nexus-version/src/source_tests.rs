@@ -50,7 +50,7 @@ async fn test_asset_index_deserialization() {
         .find(|v| v.id == "1.21.4")
         .expect("1.21.4 not found");
     let detail = fetch_version_detail(&v.url).await.unwrap();
-    let response = reqwest::get(&detail.asset_index.url).await.unwrap();
+    let response = client().get(&detail.asset_index.url).send().await.unwrap();
     let index: AssetIndexManifest = response.json().await.unwrap();
     assert!(!index.objects.is_empty());
     let (_, obj) = index.objects.iter().next().unwrap();

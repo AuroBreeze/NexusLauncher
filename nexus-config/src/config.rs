@@ -14,7 +14,7 @@ pub trait Config: Serialize + DeserializeOwned + Default {
         {
             match toml::from_str::<Self>(&content) {
                 Ok(config) => {
-                    tracing::debug!("Successfully loaded configuration from TOML.");
+                    tracing::info!("Loaded configuration from {}", path.display());
                     return config;
                 }
                 Err(e) => {
@@ -44,7 +44,7 @@ pub trait Config: Serialize + DeserializeOwned + Default {
 
         // Move the temporary file into place
         fs::rename(&temp_path, &path).await?;
-        tracing::debug!("Launcher configuration saved to {}", path.display());
+        tracing::info!("Configuration saved to {}", path.display());
         Ok(())
     }
 }

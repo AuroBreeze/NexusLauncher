@@ -36,3 +36,9 @@ jobs:
 
       - name: Lint with clippy
         run: cargo clippy
+
+      - name: Unit tests (non-network)
+        run: cargo test --workspace --exclude nexus-mods --exclude nexus-version
+
+      - name: Network tests (serial)
+        run: cargo test -p nexus-mods -p nexus-version -- --test-threads=1

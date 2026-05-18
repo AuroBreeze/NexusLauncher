@@ -42,6 +42,10 @@ pub fn save_refresh_token(uuid: &str, token: &str) -> Result<(), AnyError> {
     }
 
     fs::write(vault_dir.join(uuid), ciphertext)?;
+    tracing::info!(
+        "Refresh token saved (uuid: {}...)",
+        &uuid[..uuid.len().min(8)]
+    );
     Ok(())
 }
 
@@ -57,6 +61,10 @@ pub fn get_refresh_token(uuid: &str) -> Result<String, AnyError> {
         .decrypt(nonce, ciphertext.as_slice())
         .map_err(|e| format!("Decryption error: {}. Hardware changed?", e))?;
 
+    tracing::debug!(
+        "Refresh token loaded (uuid: {}...)",
+        &uuid[..uuid.len().min(8)]
+    );
     Ok(String::from_utf8(plaintext)?)
 }
 
@@ -67,8 +75,8 @@ pub fn delete_token(uuid: &str) -> Result<(), AnyError> {
     if file_path.exists() {
         fs::remove_file(file_path)?;
         tracing::info!(
-            "The hardware encryption credentials have been physically destroyed: {}",
-            uuid
+            "The hardware encryption credentials have been physically destroyed (uuid: {}...)",
+            &uuid[..uuid.len().min(8)]
         );
     }
     Ok(())
