@@ -26,8 +26,17 @@ fi
 
 # 3. Run Tests
 echo -e "\n${GREEN}[3/5] Running automated tests (cargo test)...${NC}"
-if ! cargo test --all-targets --all-features; then
-  echo -e "${RED}Automated tests failed!${NC}"
+# Run non-network tests in parallel first
+if ! cargo test --all-targets --all-features \
+    --workspace \
+    --exclude nexus-mods \
+    --exclude nexus-version; then
+  echo -e "${RED}Unit tests failed!${NC}"
+  FAILED=1
+fi
+# Network tests run serially to avoid API rate limiting
+if ! cargo test -p nexus-mods -p nexus-version --all-targets -- --test-threads=1; then
+  echo -e "${RED}Network tests failed!${NC}"
   FAILED=1
 fi
 
