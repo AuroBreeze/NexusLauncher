@@ -1,5 +1,6 @@
 use nexus_cli::cli::{UninstallInstanceArgs, UninstallModArgs};
 use nexus_core::{AnyError, get_clients_dir, validate_instance_name};
+use nexus_mods::models::ModManifest;
 
 pub async fn handle_uninstall_instance(args: &UninstallInstanceArgs) -> Result<(), AnyError> {
     validate_instance_name(&args.instance)?;
@@ -30,6 +31,7 @@ pub async fn handle_uninstall_mod(args: &UninstallModArgs) -> Result<(), AnyErro
     }
 
     let mut removed = 0u32;
+    let mut removed_names: Vec<String> = Vec::new();
     let mut dirs = tokio::fs::read_dir(&mods_dir).await?;
 
     while let Some(entry) = dirs.next_entry().await? {
@@ -43,6 +45,7 @@ pub async fn handle_uninstall_mod(args: &UninstallModArgs) -> Result<(), AnyErro
         if name.to_lowercase().contains(&args.query.to_lowercase()) {
             tracing::info!("Removing mod: {}", name);
             tokio::fs::remove_file(entry.path()).await?;
+            removed_names.push(name);
             removed += 1;
         }
     }
@@ -54,14 +57,34 @@ pub async fn handle_uninstall_mod(args: &UninstallModArgs) -> Result<(), AnyErro
             args.instance
         );
     } else {
-        // TODO: Remove corresponding entries from nexus_mods.toml manifest
-        // when uninstalling mods — currently the manifest retains stale entries
-        // for files that have been deleted from disk.
         tracing::info!(
             "Removed {} mod(s) from instance '{}'.",
             removed,
             args.instance
         );
+
+        // Clean up stale entries in the manifest
+        if let Ok(mut manifest) = ModManifest::load(&args.instance) {
+            let before = manifest.mods.len();
+            manifest
+                .mods
+                .retain(|m| !removed_names.contains(&m.filename));
+            if manifest.mods.len() < before {
+                if let Err(e) = manifest.save(&args.instance) {
+                    tracing::warn!("Failed to save manifest after uninstall: {}", e);
+                } else {
+                    tracing::info!(
+                        "Cleaned {} manifest entr{}.",
+                        before - manifest.mods.len(),
+                        if before - manifest.mods.len() == 1 {
+                            "y"
+                        } else {
+                            "ies"
+                        }
+                    );
+                }
+            }
+        }
     }
 
     Ok(())
