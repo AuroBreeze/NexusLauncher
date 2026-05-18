@@ -5,6 +5,7 @@ use reqwest::Client;
 use sha1::{Digest, Sha1};
 use std::path::PathBuf;
 use std::sync::{Arc, OnceLock};
+use std::time::Duration;
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::Semaphore;
@@ -12,7 +13,13 @@ use tokio::task::JoinSet;
 
 static CLIENT: OnceLock<Client> = OnceLock::new();
 fn client() -> &'static Client {
-    CLIENT.get_or_init(Client::new)
+    CLIENT.get_or_init(|| {
+        Client::builder()
+            .connect_timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(30))
+            .build()
+            .expect("failed to build shared reqwest client")
+    })
 }
 
 pub struct DownloadTask {

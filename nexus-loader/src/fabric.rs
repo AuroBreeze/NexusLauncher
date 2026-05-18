@@ -6,11 +6,18 @@ use reqwest::Client;
 use serde_json::Value;
 use std::path::PathBuf;
 use std::sync::OnceLock;
+use std::time::Duration;
 use tokio::fs;
 
 static CLIENT: OnceLock<Client> = OnceLock::new();
 fn client() -> &'static Client {
-    CLIENT.get_or_init(Client::new)
+    CLIENT.get_or_init(|| {
+        Client::builder()
+            .connect_timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(30))
+            .build()
+            .expect("failed to build shared reqwest client")
+    })
 }
 /// Find the version JSON file within the game directory
 pub fn find_game_json(game_name: &str) -> Result<PathBuf, AnyError> {

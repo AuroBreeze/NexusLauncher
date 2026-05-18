@@ -9,13 +9,20 @@ use reqwest::Client;
 use std::env;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
+use std::time::Duration;
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use walkdir::WalkDir;
 
 static CLIENT: OnceLock<Client> = OnceLock::new();
 fn client() -> &'static Client {
-    CLIENT.get_or_init(Client::new)
+    CLIENT.get_or_init(|| {
+        Client::builder()
+            .connect_timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(30))
+            .build()
+            .expect("failed to build shared reqwest client")
+    })
 }
 
 /// Deep scans the specified directory looking for bin/java executables.

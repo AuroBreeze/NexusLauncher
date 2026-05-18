@@ -3,10 +3,17 @@ use crate::storage::{get_refresh_token, save_refresh_token};
 use nexus_core::AnyError;
 use reqwest::Client;
 use std::sync::OnceLock;
+use std::time::Duration;
 
 static CLIENT: OnceLock<Client> = OnceLock::new();
 fn client() -> &'static Client {
-    CLIENT.get_or_init(Client::new)
+    CLIENT.get_or_init(|| {
+        Client::builder()
+            .connect_timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(30))
+            .build()
+            .expect("failed to build shared reqwest client")
+    })
 }
 
 pub async fn get_device_code() -> Result<DeviceCodeResponse, AnyError> {
