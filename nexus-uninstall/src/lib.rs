@@ -65,25 +65,34 @@ pub async fn handle_uninstall_mod(args: &UninstallModArgs) -> Result<(), AnyErro
         );
 
         // Clean up stale entries in the manifest
-        if let Ok(mut manifest) = ModManifest::load(&args.instance) {
-            let before = manifest.mods.len();
-            manifest
-                .mods
-                .retain(|m| !removed_names.contains(&m.filename));
-            if manifest.mods.len() < before {
-                if let Err(e) = manifest.save(&args.instance) {
-                    tracing::warn!("Failed to save manifest after uninstall: {}", e);
-                } else {
-                    tracing::info!(
-                        "Cleaned {} manifest entr{}.",
-                        before - manifest.mods.len(),
-                        if before - manifest.mods.len() == 1 {
-                            "y"
-                        } else {
-                            "ies"
-                        }
-                    );
+        match ModManifest::load(&args.instance) {
+            Ok(mut manifest) => {
+                let before = manifest.mods.len();
+                manifest
+                    .mods
+                    .retain(|m| !removed_names.contains(&m.filename));
+                if manifest.mods.len() < before {
+                    if let Err(e) = manifest.save(&args.instance) {
+                        tracing::warn!("Failed to save manifest after uninstall: {}", e);
+                    } else {
+                        tracing::info!(
+                            "Cleaned {} manifest entr{}.",
+                            before - manifest.mods.len(),
+                            if before - manifest.mods.len() == 1 {
+                                "y"
+                            } else {
+                                "ies"
+                            }
+                        );
+                    }
                 }
+            }
+            Err(e) => {
+                tracing::warn!(
+                    "Failed to load manifest for cleanup in instance '{}': {}",
+                    args.instance,
+                    e
+                );
             }
         }
     }

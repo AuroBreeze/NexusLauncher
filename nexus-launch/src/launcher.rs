@@ -6,6 +6,7 @@ use std::collections::VecDeque;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 
 fn build_classpath(
@@ -54,18 +55,17 @@ fn monitor_child(
     const STDERR_CAP: usize = 500;
     const STDOUT_CAP: usize = 100;
 
-    // Buffer last N lines while the game runs
-    let mut stderr_buf: VecDeque<String> = VecDeque::with_capacity(STDERR_CAP);
-    let mut stdout_buf: VecDeque<String> = VecDeque::with_capacity(STDOUT_CAP);
+    let stderr_buf: Arc<Mutex<VecDeque<String>>> =
+        Arc::new(Mutex::new(VecDeque::with_capacity(STDERR_CAP)));
+    let stderr_buf_clone = Arc::clone(&stderr_buf);
 
-    // Spawn a reader thread for stderr so we can also read stdout concurrently
-    let (stderr_tx, stderr_rx) = std::sync::mpsc::channel();
+    // Read stderr in a background thread — push directly into the bounded
+    // buffer to keep the 500-line cap effective at all times.
     let stderr_reader = thread::spawn(move || {
         let reader = BufReader::new(stderr);
         for line in reader.lines() {
             match line {
                 Ok(l) => {
-                    // Also log to tracing in real time for live monitoring
                     if l.contains("Exception")
                         || l.contains("FATAL")
                         || l.contains("ERROR")
@@ -75,16 +75,19 @@ fn monitor_child(
                     } else {
                         tracing::debug!("[game] {}", l);
                     }
-                    if stderr_tx.send(l).is_err() {
-                        break;
+                    let mut buf = stderr_buf_clone.lock().unwrap();
+                    if buf.len() >= STDERR_CAP {
+                        buf.pop_front();
                     }
+                    buf.push_back(l);
                 }
                 Err(_) => break,
             }
         }
     });
 
-    // Read stdout in this thread
+    // Read stdout on this thread
+    let mut stdout_buf: VecDeque<String> = VecDeque::with_capacity(STDOUT_CAP);
     for line in BufReader::new(stdout).lines() {
         match line {
             Ok(l) => {
@@ -98,16 +101,12 @@ fn monitor_child(
         }
     }
 
-    // Drain stderr channel into ring buffer
-    for line in stderr_rx {
-        if stderr_buf.len() >= STDERR_CAP {
-            stderr_buf.pop_front();
-        }
-        stderr_buf.push_back(line);
-    }
     let _ = stderr_reader.join();
+    let stderr_buf = match Arc::try_unwrap(stderr_buf) {
+        Ok(m) => m.into_inner().unwrap(),
+        Err(a) => a.lock().unwrap().clone(),
+    };
 
-    // Process has exited — wait for exit status
     match child.wait() {
         Ok(status) => {
             if status.success() {

@@ -165,7 +165,7 @@ pub async fn download_java(major_version: u32, runtimes_dir: &Path) -> Result<Pa
     }
 
     // 3. Initiate the download stream
-    let response = client().get(&url).send().await?;
+    let response = client().get(&url).send().await?.error_for_status()?;
     let total_size = response.content_length().unwrap_or(0);
 
     let pb = ProgressBar::new(total_size);

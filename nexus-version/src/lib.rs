@@ -17,6 +17,17 @@ pub async fn install_game_core(game_version: &str, dir_name: &str) -> Result<(),
     let local_json_path = version_dir.join("version.json");
 
     if local_json_path.exists() {
+        let content = tokio::fs::read_to_string(&local_json_path).await?;
+        let detail: serde_json::Value = serde_json::from_str(&content)?;
+        let existing_id = detail["id"].as_str().unwrap_or("");
+        if existing_id != game_version {
+            return Err(format!(
+                "Instance '{}' already contains version {} (requested {}). \
+                 Use `uninstall instance {}` first, or specify a different --name.",
+                dir_name, existing_id, game_version, dir_name
+            )
+            .into());
+        }
         tracing::info!(
             "Game directory '{}' already exists, verifying integrity...",
             dir_name

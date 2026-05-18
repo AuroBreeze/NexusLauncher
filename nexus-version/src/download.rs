@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 use tokio::fs;
-use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
 
@@ -63,9 +63,16 @@ pub async fn execute_downloads(
             let sem = Arc::clone(&cache_sem);
             cache_set.spawn(async move {
                 let _permit = sem.acquire_owned().await.unwrap();
-                if let Ok(content) = fs::read(&task.local_path).await {
+                if let Ok(mut file) = tokio::fs::File::open(&task.local_path).await {
                     let mut hasher = Sha1::new();
-                    hasher.update(&content);
+                    let mut buf = [0u8; 8192];
+                    loop {
+                        match file.read(&mut buf).await {
+                            Ok(0) => break,
+                            Ok(n) => hasher.update(&buf[..n]),
+                            Err(_) => break,
+                        }
+                    }
                     if hex::encode(hasher.finalize()) == task.sha1 {
                         pb.set_message(format!("✅ Cached: {}", task.name));
                         pb.inc(1);
@@ -168,7 +175,7 @@ pub async fn download_and_verify(
     }
 
     tracing::debug!("Downloading {}...", save_path.display());
-    let response = client().get(url).send().await?;
+    let response = client().get(url).send().await?.error_for_status()?;
 
     let pb = ProgressBar::hidden(); // Silent mode: Does not display, but can still receive inc() updates without errors
 
@@ -218,7 +225,13 @@ pub async fn pool_download_and_link(
     if !pool_path.exists() {
         tracing::debug!("Downloading library: {}", lib_relative_path);
         fs::create_dir_all(pool_path.parent().unwrap()).await?;
-        let resp = client().get(url).send().await?.bytes().await?;
+        let resp = client()
+            .get(url)
+            .send()
+            .await?
+            .error_for_status()?
+            .bytes()
+            .await?;
         fs::write(&pool_path, resp).await?;
     }
 

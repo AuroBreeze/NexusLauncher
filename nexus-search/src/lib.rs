@@ -4,7 +4,7 @@ use nexus_cli::cli::{
 };
 use nexus_config::config::Config;
 use nexus_config::models::LaunchConfig;
-use nexus_core::{AnyError, UserCacheEntry, get_clients_dir};
+use nexus_core::{AnyError, UserCacheEntry, get_clients_dir, validate_instance_name};
 use nexus_java::java::scan_local_java_environments;
 use nexus_mods::api::search_project;
 use nexus_mods::models::SearchParams;
@@ -158,6 +158,9 @@ pub async fn handle_search_java(args: &SearchJavaArgs) -> Result<(), AnyError> {
 }
 
 pub async fn handle_search_user(args: &SearchUserArgs) -> Result<(), AnyError> {
+    validate_instance_name(&args.instance)
+        .map_err(|e| format!("Invalid instance name '{}': {}", args.instance, e))?;
+
     let path = get_clients_dir()
         .join(&args.instance)
         .join("usercache.json");
