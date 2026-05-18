@@ -168,7 +168,18 @@ async fn handle_launch(args: &LaunchArgs) -> Result<(), AnyError> {
         fabric_profile,
     );
 
-    start_game(launch_context)?;
+    let monitor = start_game(launch_context)?;
 
+    // TODO: Use OS-level file redirection (Stdio::from) so the game
+    // output survives launcher exit. Then the monitor thread can be
+    // fully detached and the CLI returns immediately — crash detection
+    // would be handled by a separate `check-crash` command that reads
+    // the persisted output file.
+    //
+    // Block until the game exits — the game runs as an independent OS
+    // process, so this only blocks the launcher's monitor thread.
+    // If the game crashes, stderr is captured and written to
+    // clients/<instance>/crash-<timestamp>.log by the monitor.
+    let _ = monitor.join();
     Ok(())
 }

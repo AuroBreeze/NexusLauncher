@@ -2,8 +2,11 @@ use crate::models::LaunchContext;
 use nexus_core::AnyError;
 use nexus_core::{self, get_minecraft_dir, maven_to_path};
 use nexus_loader::models::FabricProfile;
+use std::collections::VecDeque;
+use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Child, Command, Stdio};
+use std::thread::{self, JoinHandle};
 
 fn build_classpath(
     libraries: &[PathBuf],
@@ -42,7 +45,175 @@ fn build_classpath(
     (cp_paths.join(sep), fabric_main_class)
 }
 
-pub fn start_game(launch_context: LaunchContext) -> Result<(), AnyError> {
+fn monitor_child(
+    mut child: Child,
+    stderr: std::process::ChildStderr,
+    stdout: std::process::ChildStdout,
+    instance_name: String,
+) {
+    const STDERR_CAP: usize = 500;
+    const STDOUT_CAP: usize = 100;
+
+    // Buffer last N lines while the game runs
+    let mut stderr_buf: VecDeque<String> = VecDeque::with_capacity(STDERR_CAP);
+    let mut stdout_buf: VecDeque<String> = VecDeque::with_capacity(STDOUT_CAP);
+
+    // Spawn a reader thread for stderr so we can also read stdout concurrently
+    let (stderr_tx, stderr_rx) = std::sync::mpsc::channel();
+    let stderr_reader = thread::spawn(move || {
+        let reader = BufReader::new(stderr);
+        for line in reader.lines() {
+            match line {
+                Ok(l) => {
+                    // Also log to tracing in real time for live monitoring
+                    if l.contains("Exception")
+                        || l.contains("FATAL")
+                        || l.contains("ERROR")
+                        || l.contains("crash")
+                    {
+                        tracing::error!("[game] {}", l);
+                    } else {
+                        tracing::debug!("[game] {}", l);
+                    }
+                    if stderr_tx.send(l).is_err() {
+                        break;
+                    }
+                }
+                Err(_) => break,
+            }
+        }
+    });
+
+    // Read stdout in this thread
+    for line in BufReader::new(stdout).lines() {
+        match line {
+            Ok(l) => {
+                tracing::trace!("[game:stdout] {}", l);
+                if stdout_buf.len() >= STDOUT_CAP {
+                    stdout_buf.pop_front();
+                }
+                stdout_buf.push_back(l);
+            }
+            Err(_) => break,
+        }
+    }
+
+    // Drain stderr channel into ring buffer
+    for line in stderr_rx {
+        if stderr_buf.len() >= STDERR_CAP {
+            stderr_buf.pop_front();
+        }
+        stderr_buf.push_back(line);
+    }
+    let _ = stderr_reader.join();
+
+    // Process has exited — wait for exit status
+    match child.wait() {
+        Ok(status) => {
+            if status.success() {
+                tracing::info!("The game has exited normally.");
+            } else {
+                tracing::warn!(
+                    "The game exited abnormally with code {}. Writing crash log...",
+                    status
+                );
+                write_crash_log(&instance_name, &status, &stderr_buf, &stdout_buf);
+            }
+        }
+        Err(e) => {
+            tracing::error!("Failed to wait on game process: {}", e);
+        }
+    }
+}
+
+const CRASH_LOG_DIR: &str = "crash_logs";
+const MAX_CRASH_LOGS: usize = 20;
+
+fn crash_log_dir() -> PathBuf {
+    nexus_core::get_minecraft_dir().join(CRASH_LOG_DIR)
+}
+
+/// Remove oldest crash logs when the directory exceeds MAX_CRASH_LOGS.
+fn prune_old_logs() {
+    let dir = crash_log_dir();
+    let mut entries: Vec<_> = match std::fs::read_dir(&dir) {
+        Ok(d) => d.filter_map(|e| e.ok()).collect(),
+        Err(_) => return,
+    };
+    if entries.len() <= MAX_CRASH_LOGS {
+        return;
+    }
+    // Sort by modification time, oldest first
+    entries.sort_by_key(|e| e.metadata().and_then(|m| m.modified()).ok());
+    let excess = entries.len() - MAX_CRASH_LOGS;
+    for entry in entries.iter().take(excess) {
+        let _ = std::fs::remove_file(entry.path());
+    }
+    if excess > 0 {
+        tracing::debug!("Pruned {} old crash log(s)", excess);
+    }
+}
+
+fn write_crash_log(
+    instance_name: &str,
+    status: &std::process::ExitStatus,
+    stderr_buf: &VecDeque<String>,
+    stdout_buf: &VecDeque<String>,
+) {
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+
+    let dir = crash_log_dir();
+    if let Err(e) = std::fs::create_dir_all(&dir) {
+        tracing::error!("Failed to create crash log dir {}: {}", dir.display(), e);
+        return;
+    }
+
+    // TODO: Add more log control — configurable max file count and total size
+    // limit, log level filter per instance, and rotation by age.
+    prune_old_logs();
+
+    let log_path = dir.join(format!("{}-{}.log", instance_name, ts));
+
+    let mut f = match std::fs::File::create(&log_path) {
+        Ok(f) => f,
+        Err(e) => {
+            tracing::error!(
+                "Failed to create crash log at {}: {}",
+                log_path.display(),
+                e
+            );
+            return;
+        }
+    };
+
+    let _ = writeln!(f, "=== Crash Report ===");
+    let _ = writeln!(f, "Instance: {}", instance_name);
+    let _ = writeln!(f, "Exit code: {}", status);
+    let _ = writeln!(f, "Timestamp: {}", ts);
+    let _ = writeln!(f);
+
+    if !stderr_buf.is_empty() {
+        let _ = writeln!(f, "--- Last {} stderr lines ---", stderr_buf.len());
+        for line in stderr_buf {
+            let _ = writeln!(f, "{}", line);
+        }
+    }
+
+    if !stdout_buf.is_empty() {
+        let _ = writeln!(f);
+        let _ = writeln!(f, "--- Last {} stdout lines ---", stdout_buf.len());
+        for line in stdout_buf {
+            let _ = writeln!(f, "{}", line);
+        }
+    }
+
+    tracing::info!("Crash log written to {}", log_path.display());
+}
+
+pub fn start_game(launch_context: LaunchContext) -> Result<JoinHandle<()>, AnyError> {
     tracing::info!("Assembling startup parameters...");
 
     // 0. Validation
@@ -107,15 +278,27 @@ pub fn start_game(launch_context: LaunchContext) -> Result<(), AnyError> {
 
     tracing::info!("Execute command: {:?}", args_preview);
 
-    // TODO: Capture child stderr/stdout to detect and report crashes.
-    // Currently we only log the exit status — piping stderr would let us
-    // surface error messages (e.g. ModResolutionException, OutOfMemory)
-    // directly to the user instead of requiring log file inspection.
+    cmd.stdout(Stdio::piped());
+    cmd.stderr(Stdio::piped());
+
     let mut child = cmd.spawn()?;
-    tracing::info!("🚀 The game has successfully started! PID: {}", child.id());
+    let pid = child.id();
+    tracing::info!("🚀 The game has successfully started! PID: {}", pid);
 
-    let status = child.wait()?;
-    tracing::info!("The game has exited, status code: {}", status);
+    let instance_name = launch_context
+        .game_path
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| "unknown".to_string());
 
-    Ok(())
+    // Detach monitoring to a background thread.
+    // If the game crashes, stderr is captured and written
+    // to clients/<instance>/crash-<timestamp>.log.
+    let stderr = child.stderr.take().unwrap();
+    let stdout = child.stdout.take().unwrap();
+    let handle = thread::spawn(move || {
+        monitor_child(child, stderr, stdout, instance_name);
+    });
+
+    Ok(handle)
 }
