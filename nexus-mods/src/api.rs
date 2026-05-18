@@ -325,10 +325,11 @@ pub async fn download_mod_to_instance(
     // recursively (with the same loader/game_version filter). Embedded
     // deps should also be downloaded. Skip optional/incompatible.
     //
-    // TODO: Resolve and store the dependency version number (e.g. "0.6.10")
-    // via get_version(vid), not just the raw version_id. Currently DepEntry
-    // only records the project name and opaque version_id, making it hard to
-    // tell which version of a dependency is installed.
+    // TODO: Call get_version(vid) to fetch the full dependency version info
+    // (version_number, game_versions, loaders, etc.) and verify it supports
+    // the current game version and loader before installing. Currently only
+    // the opaque version_id is stored — no compatibility check and no
+    // human-readable version number in DepEntry.
     //
     // Resolve dependency names concurrently
     let dep_futures: Vec<_> = version

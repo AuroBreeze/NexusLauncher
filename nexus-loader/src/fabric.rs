@@ -31,6 +31,7 @@ pub fn find_game_json(game_name: &str) -> Result<PathBuf, AnyError> {
         })
         .ok_or_else(|| format!("No JSON version file found in {}", target_dir.display()))?;
 
+    tracing::debug!("Found version.json at {}", json_file.display());
     Ok(json_file)
 }
 
@@ -60,6 +61,7 @@ pub fn find_fabric_json(dir_path: &PathBuf) -> Result<Option<PathBuf>, Box<dyn s
             }
         });
 
+    tracing::debug!("find_fabric_json → {:?}", target_file);
     Ok(target_file)
 }
 

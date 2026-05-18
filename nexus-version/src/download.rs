@@ -31,6 +31,11 @@ pub async fn execute_downloads(
     let main_pb = mp.add(ProgressBar::new(total));
     main_pb.set_style(ProgressStyle::with_template(progress_template)?);
 
+    tracing::debug!(
+        "execute_downloads: {} total, {} existing files to hash-check",
+        total,
+        tasks.iter().filter(|t| t.local_path.exists()).count()
+    );
     // ── Phase 1: parallel SHA1 cache check for existing files ──
     // Use 2x concurrency since hashing is CPU-bound and fast on cached files.
     let check_concurrency = (max_concurrent * 2).max(16);
@@ -72,6 +77,11 @@ pub async fn execute_downloads(
         }
     }
 
+    tracing::debug!(
+        "Cache check done: {} cached, {} need download",
+        total - download_tasks.len() as u64,
+        download_tasks.len()
+    );
     // ── Phase 2: download remaining (missing + failed-cache) ──
     if !download_tasks.is_empty() {
         let semaphore = Arc::new(Semaphore::new(max_concurrent));

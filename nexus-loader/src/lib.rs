@@ -10,6 +10,11 @@ use std::path::PathBuf;
 // TODO: Track loader download statistics (loader type, version, game version, timestamp)
 // The configuration file needs to be updated; most importantly, the persistence settings for the main function need to be saved.
 pub async fn handle_loader(args: &LoaderArgs) -> Result<(), AnyError> {
+    tracing::debug!(
+        "handle_loader: game_name={}, loader={:?}",
+        args.game_name,
+        args.loader
+    );
     let loader_verison = get_latest_loader(&args.game_name).await;
     match loader_verison {
         Ok(v) => {

@@ -29,6 +29,7 @@ impl LaunchConfig {
                 // Double check if the major version still matches
                 // (in case the user updated their system "java" environment variable)
                 if info.major_version == major_version {
+                    tracing::debug!("Cached Java {} valid: {}", major_version, path.display());
                     return Some(path.clone());
                 } else {
                     tracing::warn!(

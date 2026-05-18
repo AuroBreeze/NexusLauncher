@@ -30,6 +30,7 @@ pub async fn handle_uninstall_mod(args: &UninstallModArgs) -> Result<(), AnyErro
         return Ok(());
     }
 
+    tracing::debug!("Scanning mods directory: {}", mods_dir.display());
     let mut removed = 0u32;
     let mut removed_names: Vec<String> = Vec::new();
     let mut dirs = tokio::fs::read_dir(&mods_dir).await?;

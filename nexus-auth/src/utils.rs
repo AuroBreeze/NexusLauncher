@@ -4,6 +4,7 @@ use nexus_core::AnyError;
 use reqwest::Client;
 
 pub async fn get_device_code() -> Result<DeviceCodeResponse, AnyError> {
+    tracing::debug!("Requesting Microsoft device code...");
     let client = Client::new();
     let res = client
         .post("https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode")
@@ -134,6 +135,7 @@ pub async fn get_minecraft_token(xsts_token: &str, uhs: &str) -> Result<String, 
 }
 
 pub async fn check_ownership(mc_token: &str) -> Result<bool, AnyError> {
+    tracing::debug!("Checking Minecraft ownership...");
     let client = Client::new();
     let res = client
         .get("https://api.minecraftservices.com/entitlements/mcstore")
@@ -181,6 +183,7 @@ pub async fn get_minecraft_profile(
 
 ///  Refresh the Microsoft Token
 pub async fn refresh_ms_token(refresh_token: &str) -> Result<MicrosoftToken, AnyError> {
+    tracing::debug!("Refreshing Microsoft token via OAuth...");
     let client = Client::new();
     let res = client
         .post("https://login.microsoftonline.com/consumers/oauth2/v2.0/token")

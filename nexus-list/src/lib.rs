@@ -14,6 +14,7 @@ pub async fn handle_list_instances() -> Result<(), AnyError> {
         return Ok(());
     }
 
+    tracing::debug!("Scanning clients directory: {}", clients_dir.display());
     let mut dirs = tokio::fs::read_dir(&clients_dir).await?;
     let mut instances: Vec<String> = Vec::new();
 
